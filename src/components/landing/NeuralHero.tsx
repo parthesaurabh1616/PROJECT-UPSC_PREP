@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 /**
- * NeuralHero — cinematic preparation topology background.
+ * NeuralHero â€” cinematic preparation topology background.
  * Layered SVG: floating concept nodes + connecting links + glow orbs.
  * Pure CSS animation, no Three.js needed.
  */
@@ -13,8 +13,8 @@ interface Node { id: string; label: string; x: number; y: number; r: number; rin
 function buildGraph() {
   // Concept clusters around the canvas (1400x800 viewBox).
   const nodes: Node[] = [
-    { id: "core",  label: "UPSC PREP OS",   x: 700, y: 410, r: 22, ring: 0 },
-    // ring 1 — major modules
+    { id: "core",  label: "CONQUER CAPITAL",   x: 700, y: 410, r: 22, ring: 0 },
+    // ring 1 â€” major modules
     { id: "polity",label: "Polity",          x: 380, y: 270, r: 11, ring: 1 },
     { id: "geo",   label: "Geography",       x: 1020,y: 270, r: 11, ring: 1 },
     { id: "hist",  label: "History",         x: 300, y: 470, r: 11, ring: 1 },
@@ -23,23 +23,23 @@ function buildGraph() {
     { id: "ethics",label: "Ethics",          x: 940, y: 620, r: 10, ring: 1 },
     { id: "ir",    label: "Intl. Relations", x: 700, y: 220, r: 11, ring: 1 },
     { id: "soc",   label: "Sociology",       x: 700, y: 640, r: 10, ring: 1 },
-    // ring 2 — current affairs and intelligence
+    // ring 2 â€” current affairs and intelligence
     { id: "ca",    label: "Current Affairs", x: 200, y: 360, r: 9,  ring: 2 },
     { id: "pyq",   label: "PYQ Vault",       x: 1200,y: 360, r: 9,  ring: 2 },
     { id: "rev",   label: "Revision",        x: 160, y: 560, r: 9,  ring: 2 },
     { id: "test",  label: "Tests",           x: 1240,y: 560, r: 9,  ring: 2 },
     { id: "ai",    label: "AI Mentor",       x: 700, y: 110, r: 11, ring: 2 },
     { id: "notes", label: "Notes",           x: 700, y: 740, r: 10, ring: 2 },
-    // ring 3 — outer signals
+    // ring 3 â€” outer signals
     { id: "kesav", label: "Kesavananda",     x: 90,  y: 220, r: 7, ring: 3 },
     { id: "njac",  label: "NJAC",            x: 1310,y: 220, r: 7, ring: 3 },
-    { id: "mpc",   label: "MPC · RBI",       x: 100, y: 700, r: 7, ring: 3 },
+    { id: "mpc",   label: "MPC Â· RBI",       x: 100, y: 700, r: 7, ring: 3 },
     { id: "cbam",  label: "CBAM",            x: 1300,y: 700, r: 7, ring: 3 },
-    { id: "bhakti",label: "Bhakti–Sufi",     x: 380, y: 140, r: 7, ring: 3 },
+    { id: "bhakti",label: "Bhaktiâ€“Sufi",     x: 380, y: 140, r: 7, ring: 3 },
     { id: "monsoon",label:"Monsoon system",  x: 1020,y: 140, r: 7, ring: 3 },
   ];
 
-  // Links — primary spokes + a few cross-links to feel organic.
+  // Links â€” primary spokes + a few cross-links to feel organic.
   const links: [string, string][] = [
     ["core","polity"],["core","geo"],["core","hist"],["core","econ"],
     ["core","env"],["core","ethics"],["core","ir"],["core","soc"],

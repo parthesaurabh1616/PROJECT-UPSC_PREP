@@ -32,7 +32,7 @@ const SUGGESTIONS = [
   "Mains answer framework for federalism",
   "Summarise NCERT Economy Ch.3",
   "Evaluate my GS-II answer",
-  "Today s editorial UPSC angle",
+  "Today's editorial UPSC angle",
 ];
 
 function groupConvs(convs: Conversation[]) {
@@ -132,7 +132,7 @@ export default function MentorPage() {
   const ModelIcon = currentModel.icon;
 
   return (
-    <div className="mx-auto grid h-[calc(100vh-64px-3.5rem)] max-w-[1280px] grid-cols-[240px_1fr] gap-4">
+    <div className="mx-auto grid h-[calc(100vh-56px-3rem)] max-w-[1280px] grid-cols-[240px_1fr] gap-4">
       {/* Sidebar */}
       <aside className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="p-3">

@@ -72,7 +72,7 @@ export default function NotesPage() {
   );
 
   return (
-    <div className="mx-auto grid h-[calc(100vh-64px-3.5rem)] max-w-[1280px] grid-cols-[260px_1fr] gap-4">
+    <div className="mx-auto grid h-[calc(100vh-56px-3rem)] max-w-[1280px] grid-cols-[260px_1fr] gap-4">
       <aside className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="p-3 space-y-2">
           <button onClick={createNote}

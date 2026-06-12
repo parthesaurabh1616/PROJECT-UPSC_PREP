@@ -34,7 +34,7 @@ export default function CurrentAffairsPage() {
   };
 
   const toggleSave = (id: string) =>
-    setSaved((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSaved((s) => { const n = new Set(s); if (n.has(id)) { n.delete(id); } else { n.add(id); } return n; });
 
   const high   = articles.filter((a) => a.priority === "high").length;
   const gsTags = Array.from(new Set(articles.flatMap((a) => a.gsMapping)));

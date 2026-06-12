@@ -93,9 +93,9 @@ function project(
   const phi   = (90 - lat) * (Math.PI / 180);
   const theta = (lng + rotY) * (Math.PI / 180);
 
-  let px = Math.sin(phi) * Math.cos(theta);
-  let py = Math.cos(phi);
-  let pz = Math.sin(phi) * Math.sin(theta);
+  const px = Math.sin(phi) * Math.cos(theta);
+  const py = Math.cos(phi);
+  const pz = Math.sin(phi) * Math.sin(theta);
 
   // Apply axial tilt
   const cosT = Math.cos(TILT), sinT = Math.sin(TILT);
