@@ -9,20 +9,21 @@ interface Conversation { id: string; title: string; messages: Message[]; updated
 
 type ModelId = "gemini-2.5-flash" | "llama-3.3-70b-versatile";
 
-const MODELS: Record<ModelId, { label: string; badge: string; description: string; icon: React.ElementType; badgeClass: string; }> = {
-  "gemini-2.5-flash": {
-    label: "Gemini 2.5 Flash",
-    badge: "Deep",
-    description: "NCERTs, books, long docs — 1M token context",
-    icon: Brain,
-    badgeClass: "bg-accent-2/15 text-accent-2 border-accent-2/30",
-  },
+const MODELS: Record<ModelId, { label: string; badge: string; description: string; icon: React.ElementType; badgeClass: string; note?: string }> = {
   "llama-3.3-70b-versatile": {
     label: "Llama 3.3 70B",
     badge: "Fast",
     description: "Ultra-fast via Groq — 500+ tokens/sec",
     icon: Zap,
     badgeClass: "bg-success/15 text-success border-success/30",
+  },
+  "gemini-2.5-flash": {
+    label: "Gemini 2.0 Flash",
+    badge: "Deep",
+    description: "NCERTs, books, long docs — 1M token context",
+    icon: Brain,
+    badgeClass: "bg-accent-2/15 text-accent-2 border-accent-2/30",
+    note: "Resets daily — use for NCERT/book analysis",
   },
 };
 
@@ -55,7 +56,7 @@ export default function MentorPage() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [modelId, setModelId] = useState<ModelId>("gemini-2.5-flash");
+  const [modelId, setModelId] = useState<ModelId>("llama-3.3-70b-versatile");
   const [showModelPicker, setShowModelPicker] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
