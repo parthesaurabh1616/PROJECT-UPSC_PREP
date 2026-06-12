@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Brain, Loader2, CheckCircle2, XCircle, ChevronRight } from "lucide-react";
+import { Plus, Brain, Loader2, CheckCircle2, ChevronRight } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
 

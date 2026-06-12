@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { prisma, ensureDemoUser, DEMO_USER_ID } from "@/lib/db";
 
 export async function GET() {

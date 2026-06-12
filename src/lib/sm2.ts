@@ -17,7 +17,6 @@ export function sm2(
 ): SM2Result {
   let newInterval: number;
   let newReps: number;
-  let newEF: number;
 
   if (quality >= 3) {
     if (repetitions === 0) newInterval = 1;
@@ -29,7 +28,7 @@ export function sm2(
     newReps = 0;
   }
 
-  newEF = Math.max(
+  const newEF = Math.max(
     1.3,
     easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02),
   );

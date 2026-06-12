@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { UploadCloud, BookOpen, FileText, Loader2, ExternalLink, Trash2 } from "lucide-react";
+import { UploadCloud, BookOpen, FileText, Loader2, ExternalLink } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
