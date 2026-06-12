@@ -18,7 +18,7 @@ const MODELS: Record<ModelId, { label: string; badge: string; description: strin
     badgeClass: "bg-success/15 text-success border-success/30",
   },
   "gemini-2.5-flash": {
-    label: "Gemini 1.5 Flash",
+    label: "Gemini 2.5 Flash",
     badge: "Deep",
     description: "NCERTs, books, long docs — 1M token context",
     icon: Brain,

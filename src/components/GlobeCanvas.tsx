@@ -16,6 +16,8 @@ export interface Article {
   prelims?: string | null;
   mains?: string | null;
   interview?: string | null;
+  category?: string | null;
+  sourceUrl?: string | null;
   publishedAt?: string;
 }
 

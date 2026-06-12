@@ -21,12 +21,12 @@ function getGroq() {
 export const MODELS = {
   "gemini-2.5-flash": {
     id: "gemini-2.5-flash",
-    apiId: "gemini-1.5-flash",   // gemini-1.5-flash = actual free-tier AI Studio model
-    label: "Gemini 1.5 Flash",
+    apiId: "gemini-2.5-flash",   // confirmed available + has free-tier quota on this key
+    label: "Gemini 2.5 Flash",
     provider: "google" as const,
     badge: "Deep",
     badgeColor: "accent-2",
-    description: "Best for NCERTs, books, deep analysis â€” 1M token context",
+    description: "Best for NCERTs, books, deep analysis — 1M token context",
     available: () => !!process.env.GOOGLE_API_KEY,
   },
   "llama-3.3-70b-versatile": {
@@ -167,7 +167,7 @@ export async function processAffair(
   prelims: string; mains: string; interview: string;
   gsMapping: string[]; tags: string[]; priority: "high" | "normal" | "low";
 }> {
-  const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent({
     systemInstruction: AFFAIRS_PROCESSOR_SYSTEM,
     contents: [{ role: "user", parts: [{ text: `Headline: ${headline}\n\nSummary: ${summary}` }] }],
@@ -192,7 +192,7 @@ export async function processDocument(
   task: "summarise" | "generate_mcqs" | "generate_mains" | "extract_facts",
   context?: string,
 ): Promise<string> {
-  const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompts: Record<typeof task, string> = {
     summarise: `Summarise this UPSC study material in a structured format:\n- Key concepts with definitions\n- Important facts and dates\n- UPSC relevance (which GS paper, which topics)\n- High-yield points for Prelims\n\nContent:\n${content}`,

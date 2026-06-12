@@ -1,43 +1,88 @@
-﻿"use client";
+"use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Bookmark, RefreshCw, Loader2, ChevronRight, X } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Bookmark, RefreshCw, Loader2, ChevronRight, X, Landmark, ExternalLink, Radio } from "lucide-react";
 import { Card, Chip, Divider, SectionHeading } from "@/components/ui";
 import { GlobeCanvas, type Article } from "@/components/GlobeCanvas";
 import { cn } from "@/lib/utils";
 
-export default function CurrentAffairsPage() {
-  const [articles, setArticles]   = useState<Article[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [ingesting, setIngesting] = useState(false);
-  const [ingestMsg, setIngestMsg] = useState("");
-  const [selected, setSelected]   = useState<Article | null>(null);
-  const [saved, setSaved]         = useState<Set<string>>(new Set());
+const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
-  const load = useCallback(() => {
-    setLoading(true);
-    fetch("/api/affairs")
-      .then((r) => r.json())
-      .then((d: unknown) => { setArticles(Array.isArray(d) ? d as Article[] : []); setLoading(false); })
-      .catch(() => setLoading(false));
+type CatKey = "all" | "pib" | "editorial" | "news" | "economy" | "international";
+
+const TABS: { key: CatKey; label: string }[] = [
+  { key: "all",           label: "All" },
+  { key: "pib",           label: "PIB · Govt" },
+  { key: "editorial",     label: "Editorials" },
+  { key: "news",          label: "National" },
+  { key: "economy",       label: "Economy" },
+  { key: "international", label: "World" },
+];
+
+export default function CurrentAffairsPage() {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [syncing, setSyncing]   = useState(false);
+  const [syncMsg, setSyncMsg]   = useState("");
+  const [selected, setSelected] = useState<Article | null>(null);
+  const [saved, setSaved]       = useState<Set<string>>(new Set());
+  const [tab, setTab]           = useState<CatKey>("all");
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const initialised = useRef(false);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/affairs", { cache: "no-store" });
+      const d: unknown = await r.json();
+      setArticles(Array.isArray(d) ? (d as Article[]) : []);
+    } catch { /* keep stale */ }
+    setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const sync = useCallback(async (silent = false) => {
+    if (syncing) return;
+    setSyncing(true);
+    if (!silent) setSyncMsg("");
+    try {
+      const res = await fetch("/api/affairs/ingest", { method: "POST" });
+      const d = await res.json() as { error?: string; ingested?: number; remaining?: number };
+      setSyncMsg(d.error ? d.error : `+${d.ingested ?? 0} new${d.remaining ? ` · ${d.remaining} queued` : ""}`);
+      setLastSync(new Date());
+    } catch {
+      setSyncMsg("Sync failed");
+    }
+    setSyncing(false);
+    await load();
+    if (!silent) setTimeout(() => setSyncMsg(""), 5000);
+  }, [syncing, load]);
 
-  const ingest = async () => {
-    setIngesting(true); setIngestMsg("");
-    const res  = await fetch("/api/affairs/ingest", { method: "POST" });
-    const d    = await res.json() as { error?: string; ingested?: number };
-    setIngestMsg(d.error ? d.error : `Ingested ${d.ingested ?? 0} new articles`);
-    setIngesting(false);
-    load();
-  };
+  // Initial load
+  useEffect(() => { void load(); }, [load]);
+
+  // Live auto-refresh every 5 minutes (silent background sync + reload)
+  useEffect(() => {
+    if (initialised.current) return;
+    initialised.current = true;
+    const id = setInterval(() => { void sync(true); }, REFRESH_MS);
+    return () => clearInterval(id);
+  }, [sync]);
 
   const toggleSave = (id: string) =>
-    setSaved((s) => { const n = new Set(s); if (n.has(id)) { n.delete(id); } else { n.add(id); } return n; });
+    setSaved((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  const high   = articles.filter((a) => a.priority === "high").length;
-  const gsTags = Array.from(new Set(articles.flatMap((a) => a.gsMapping)));
+  const visible = tab === "all" ? articles : articles.filter((a) => (a.category ?? "news") === tab);
+  const high    = articles.filter((a) => a.priority === "high").length;
+  const pibCount = articles.filter((a) => a.category === "pib").length;
+  const gsTags  = Array.from(new Set(visible.flatMap((a) => a.gsMapping)));
+
+  const counts: Record<CatKey, number> = {
+    all: articles.length,
+    pib: pibCount,
+    editorial: articles.filter((a) => a.category === "editorial").length,
+    news: articles.filter((a) => a.category === "news").length,
+    economy: articles.filter((a) => a.category === "economy").length,
+    international: articles.filter((a) => a.category === "international").length,
+  };
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-5">
@@ -48,40 +93,65 @@ export default function CurrentAffairsPage() {
           <h2 className="font-display text-[24px] font-semibold tracking-tight text-ink">
             Current Affairs Intelligence
           </h2>
-          <p className="mt-0.5 text-[12.5px] text-ink-3">
-            {articles.length} articles · {high} high-priority · AI-processed &amp; UPSC-mapped
+          <p className="mt-0.5 flex items-center gap-2 text-[12.5px] text-ink-3">
+            <span className="flex items-center gap-1 text-success">
+              <Radio size={11} className="animate-pulse" /> LIVE
+            </span>
+            · {articles.length} articles · {high} high-priority
+            {lastSync && <span>· synced {lastSync.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {ingestMsg && <span className="text-[11.5px] text-ink-2">{ingestMsg}</span>}
-          <button onClick={() => { void ingest(); }} disabled={ingesting}
+          {syncMsg && <span className="text-[11.5px] text-ink-2">{syncMsg}</span>}
+          <button onClick={() => { void sync(); }} disabled={syncing}
             className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-[12px] text-accent transition-colors hover:bg-accent/20 disabled:opacity-50">
-            {ingesting ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-            {ingesting ? "Syncing..." : "Sync news now"}
+            {syncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+            {syncing ? "Syncing…" : "Sync now"}
           </button>
         </div>
+      </div>
+
+      {/* Category tabs */}
+      <div className="flex animate-fade-up flex-wrap gap-1.5" style={{ animationDelay: "40ms" }}>
+        {TABS.map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] transition-colors",
+              tab === t.key
+                ? "bg-accent text-white"
+                : "border border-line text-ink-2 hover:border-accent/40 hover:text-ink",
+            )}>
+            {t.key === "pib" && <Landmark size={12} />}
+            {t.label}
+            <span className={cn("rounded-full px-1.5 text-[10px]", tab === t.key ? "bg-white/20" : "bg-surface-2 text-ink-3")}>
+              {counts[t.key]}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Globe + Articles */}
       <div className="grid animate-fade-up grid-cols-[1fr_440px] gap-5" style={{ animationDelay: "60ms" }}>
 
         {/* Article list */}
-        <div className="space-y-4 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 200px)" }}>
+        <div className="space-y-4 overflow-y-auto pr-1" style={{ maxHeight: "calc(100vh - 240px)" }}>
           {loading && (
             <div className="flex items-center gap-2 py-8 text-ink-3">
-              <Loader2 size={16} className="animate-spin" /> Loading articles...
+              <Loader2 size={16} className="animate-spin" /> Loading articles…
             </div>
           )}
-          {!loading && articles.length === 0 && (
+          {!loading && visible.length === 0 && (
             <Card className="py-10 text-center">
-              <p className="text-[14px] font-semibold text-ink">No articles yet</p>
-              <p className="mt-1 text-[12.5px] text-ink-3">
-                Click &ldquo;Sync news now&rdquo; to fetch and AI-process today&apos;s news.
+              <p className="text-[14px] font-semibold text-ink">
+                {articles.length === 0 ? "No articles yet" : "Nothing in this category yet"}
               </p>
-              <p className="mt-1 text-[11px] text-ink-3">Requires GOOGLE_API_KEY in .env</p>
+              <p className="mt-1 text-[12.5px] text-ink-3">
+                Click &ldquo;Sync now&rdquo; to fetch and AI-process the latest news.
+              </p>
+              <p className="mt-1 text-[11px] text-ink-3">Auto-refreshes every 5 minutes</p>
             </Card>
           )}
-          {articles.map((a) => (
+          {visible.map((a) => (
             <ArticleCard key={a.id} article={a}
               active={selected?.id === a.id}
               saved={saved.has(a.id)}
@@ -147,10 +217,10 @@ export default function CurrentAffairsPage() {
           </Card>
 
           <Card>
-            <SectionHeading title="GS Coverage" sub="Topics across synced articles" icon={<span className="text-accent">◈</span>} />
+            <SectionHeading title="GS Coverage" sub="Topics in this view" icon={<span className="text-accent">◈</span>} />
             <div className="mt-3 flex flex-wrap gap-1.5">
               {gsTags.map((t) => <Chip key={t} tone="accent">{t}</Chip>)}
-              {Array.from(new Set(articles.flatMap((a) => a.tags))).slice(0, 12).map((t, i) => (
+              {Array.from(new Set(visible.flatMap((a) => a.tags))).slice(0, 12).map((t, i) => (
                 <span key={i} className="rounded-full bg-surface-2 px-2 py-0.5 text-[10.5px] text-ink-2">{t}</span>
               ))}
             </div>
@@ -166,8 +236,14 @@ export default function CurrentAffairsPage() {
               <h3 className="font-display text-[20px] font-semibold leading-snug tracking-tight text-ink">
                 {selected.headline}
               </h3>
-              <p className="mt-1 text-[11px] uppercase tracking-[0.07em] text-ink-3">
+              <p className="mt-1 flex items-center gap-2 text-[11px] uppercase tracking-[0.07em] text-ink-3">
                 {selected.source} · {selected.publishedAt ? new Date(selected.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}
+                {selected.sourceUrl && (
+                  <a href={selected.sourceUrl} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-accent hover:underline">
+                    source <ExternalLink size={10} />
+                  </a>
+                )}
               </p>
             </div>
             <button onClick={() => setSelected(null)} className="text-ink-3 hover:text-ink"><X size={18} /></button>
@@ -196,21 +272,35 @@ export default function CurrentAffairsPage() {
   );
 }
 
+const CAT_BADGE: Record<string, { label: string; cls: string }> = {
+  pib:           { label: "PIB",       cls: "bg-gold/15 text-gold border-gold/30" },
+  editorial:     { label: "Editorial", cls: "bg-accent-2/15 text-accent-2 border-accent-2/30" },
+  economy:       { label: "Economy",   cls: "bg-success/15 text-success border-success/30" },
+  international: { label: "World",      cls: "bg-analyt/15 text-analyt border-analyt/30" },
+  news:          { label: "News",      cls: "bg-surface-2 text-ink-3 border-line" },
+};
+
 function ArticleCard({ article: a, active, saved, onSave, onClick }: {
   article: Article; active: boolean; saved: boolean;
   onSave: () => void; onClick: () => void;
 }) {
+  const badge = CAT_BADGE[a.category ?? "news"] ?? CAT_BADGE.news;
   return (
     <Card id={`a-${a.id}`} hover onClick={onClick}
       className={cn("cursor-pointer p-5 transition-all", active && "border-accent/50 bg-surface-2")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className={cn("rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest", badge.cls)}>
+              {badge.label}
+            </span>
+            <span className="truncate text-[10.5px] uppercase tracking-[0.07em] text-ink-3">
+              {a.source} · {a.publishedAt ? new Date(a.publishedAt).toLocaleDateString("en-IN") : ""}
+            </span>
+          </div>
           <h3 className="font-display text-[16px] font-semibold leading-snug tracking-tight text-ink line-clamp-2">
             {a.headline}
           </h3>
-          <p className="mt-1 text-[10.5px] uppercase tracking-[0.07em] text-ink-3">
-            {a.source} · {a.publishedAt ? new Date(a.publishedAt).toLocaleDateString("en-IN") : ""}
-          </p>
         </div>
         <button onClick={(e) => { e.stopPropagation(); onSave(); }}
           className={cn("shrink-0 transition-colors", saved ? "text-accent" : "text-ink-3 hover:text-accent")}>
