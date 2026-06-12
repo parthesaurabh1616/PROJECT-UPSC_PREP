@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma, ensureDemoUser, DEMO_USER_ID } from "@/lib/db";
 import { streamChat, DEFAULT_MODEL, MODELS, type ModelId } from "@/lib/ai";
 
+const GROQ_FALLBACK: ModelId = "llama-3.3-70b-versatile";
+
 export async function POST(req: NextRequest) {
   await ensureDemoUser();
 
@@ -11,14 +13,12 @@ export async function POST(req: NextRequest) {
     modelId?: ModelId;
   };
 
-  // Validate model or fall back to whichever provider has a key configured
   let selectedModel: ModelId = modelId ?? DEFAULT_MODEL;
   if (!MODELS[selectedModel].available()) {
-    // Auto-fallback: try the other model
     const fallback = (Object.keys(MODELS) as ModelId[]).find(
       (id) => id !== selectedModel && MODELS[id].available(),
     );
-    if (fallback) selectedModel = fallback;
+    if (fallback) selectedModel = fallback as ModelId;
   }
 
   if (!MODELS[selectedModel].available()) {
@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
     where: { id: conversationId, userId: DEMO_USER_ID },
     include: { messages: { orderBy: { createdAt: "asc" } } },
   });
-
   if (!conv) return new Response("Conversation not found", { status: 404 });
 
   await prisma.message.create({
@@ -66,17 +65,40 @@ export async function POST(req: NextRequest) {
         for await (const chunk of streamChat(history, selectedModel)) {
           send(chunk);
         }
-      } catch (err) {
-        // Send the error as readable text in the stream instead of controller.error()
-        // controller.error() causes ERR_EMPTY_RESPONSE in the browser
-        const msg = err instanceof Error ? err.message : String(err);
-        send(`\n\n⚠️ **AI Error:** ${msg}\n\nTip: Check your GOOGLE_API_KEY / GROQ_API_KEY in .env`);
+      } catch (primaryErr) {
+        // If Gemini failed (quota/rate limit) — silently retry with Groq
+        const isGemini = MODELS[selectedModel].provider === "google";
+        const groqAvailable = MODELS[GROQ_FALLBACK].available();
+
+        if (isGemini && groqAvailable && fullResponse.length === 0) {
+          // No partial response yet — clean fallback, user won't notice
+          try {
+            for await (const chunk of streamChat(history, GROQ_FALLBACK)) {
+              send(chunk);
+            }
+          } catch (fallbackErr) {
+            const msg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+            send(`Sorry, both AI providers failed right now. Please try again in a moment.\n\nError: ${msg}`);
+          }
+        } else {
+          // Groq also failed or partial response exists — show clean message
+          const msg = primaryErr instanceof Error ? primaryErr.message : String(primaryErr);
+          const isQuota = msg.includes("429") || msg.includes("quota");
+          if (isQuota) {
+            send(fullResponse.length > 0
+              ? "\n\n*(Response cut short — quota limit reached. Groq is available as Fast model.)*"
+              : "The Gemini free-tier quota is currently exhausted. Please switch to **Groq (Fast)** using the model selector, or try again after midnight Pacific time when the quota resets."
+            );
+          } else {
+            send(`Sorry, an error occurred. Please try again.\n\n*(${msg})*`);
+          }
+        }
       }
 
       if (fullResponse.trim()) {
         await prisma.message.create({
           data: { conversationId, role: "assistant", content: fullResponse },
-        }).catch(() => null); // non-fatal
+        }).catch(() => null);
       }
 
       controller.close();

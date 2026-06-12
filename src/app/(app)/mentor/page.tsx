@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Plus, Paperclip, ArrowUp, Loader2, CornerDownLeft, Zap, Brain } from "lucide-react";
+import { Plus, Paperclip, ArrowUp, Loader2, CornerDownLeft, Zap, Brain, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message { id: string; role: "user" | "assistant"; content: string; }
@@ -18,7 +18,7 @@ const MODELS: Record<ModelId, { label: string; badge: string; description: strin
     badgeClass: "bg-success/15 text-success border-success/30",
   },
   "gemini-2.5-flash": {
-    label: "Gemini 2.0 Flash",
+    label: "Gemini 1.5 Flash",
     badge: "Deep",
     description: "NCERTs, books, long docs — 1M token context",
     icon: Brain,
@@ -124,6 +124,13 @@ export default function MentorPage() {
     fetch("/api/mentor/conversations").then((r) => r.json()).then(setConversations);
   }, [activeId, streaming, modelId]);
 
+  const deleteConversation = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await fetch(`/api/mentor/conversations/${id}`, { method: "DELETE" });
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (activeId === id) { setActiveId(null); setMessages([]); }
+  }, [activeId]);
+
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(input); }
   };
@@ -149,11 +156,19 @@ export default function MentorPage() {
               <div key={label} className="mb-3">
                 <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.13em] text-ink-3">{label}</p>
                 {items.map((c) => (
-                  <button key={c.id} onClick={() => selectConv(c)}
-                    className={cn("block w-full truncate rounded-lg px-2.5 py-1.5 text-left text-[12.5px] transition-colors",
-                      c.id === activeId ? "bg-accent/12 font-medium text-accent" : "text-ink-2 hover:bg-surface-2 hover:text-ink")}>
-                    {c.title}
-                  </button>
+                  <div key={c.id} className="group relative">
+                    <button onClick={() => selectConv(c)}
+                      className={cn("block w-full truncate rounded-lg px-2.5 py-1.5 pr-8 text-left text-[12.5px] transition-colors",
+                        c.id === activeId ? "bg-accent/12 font-medium text-accent" : "text-ink-2 hover:bg-surface-2 hover:text-ink")}>
+                      {c.title}
+                    </button>
+                    <button
+                      onClick={(e) => { void deleteConversation(c.id, e); }}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 hidden rounded p-1 text-ink-3 hover:text-danger group-hover:flex"
+                      aria-label="Delete conversation">
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
                 ))}
               </div>
             ))}

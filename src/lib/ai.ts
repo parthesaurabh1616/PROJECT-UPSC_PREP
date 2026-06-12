@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+﻿import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 
-// ── Clients (lazy-init so missing keys don't crash module load) ─
+// â”€â”€ Clients (lazy-init so missing keys don't crash module load) â”€
 let _genAI: GoogleGenerativeAI | null = null;
 let _groq:  Groq | null = null;
 
@@ -17,16 +17,16 @@ function getGroq() {
   return _groq;
 }
 
-// ── Model registry ────────────────────────────────────────────
+// â”€â”€ Model registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const MODELS = {
   "gemini-2.5-flash": {
     id: "gemini-2.5-flash",
-    apiId: "gemini-2.0-flash",
-    label: "Gemini 2.5 Flash",
+    apiId: "gemini-1.5-flash",   // gemini-1.5-flash = actual free-tier AI Studio model
+    label: "Gemini 1.5 Flash",
     provider: "google" as const,
     badge: "Deep",
     badgeColor: "accent-2",
-    description: "Best for NCERTs, books, deep analysis — 1M token context",
+    description: "Best for NCERTs, books, deep analysis â€” 1M token context",
     available: () => !!process.env.GOOGLE_API_KEY,
   },
   "llama-3.3-70b-versatile": {
@@ -36,21 +36,21 @@ export const MODELS = {
     provider: "groq" as const,
     badge: "Fast",
     badgeColor: "success",
-    description: "Ultra-fast streaming via Groq — 500+ tokens/sec",
+    description: "Ultra-fast streaming via Groq â€” 500+ tokens/sec",
     available: () => !!process.env.GROQ_API_KEY,
   },
 } as const;
 
 export type ModelId = keyof typeof MODELS;
-// Groq is default — instant, no quota issues. Switch to Gemini for deep/NCERT work.
+// Groq is default â€” instant, no quota issues. Switch to Gemini for deep/NCERT work.
 export const DEFAULT_MODEL: ModelId = "llama-3.3-70b-versatile";
 
-// ── UPSC Mentor system prompt ──────────────────────────────────
+// â”€â”€ UPSC Mentor system prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const UPSC_MENTOR_SYSTEM = `You are Lakshya, an elite AI mentor for UPSC Civil Services Examination (CSE) preparation. You are Saurabh's personal strategic advisor for AIR-1 level preparation.
 
 ## Your Knowledge Base
 - Complete UPSC CSE Syllabus: Prelims (GS-I, CSAT) + Mains (GS-I through GS-IV, Essay, Optional Sociology)
-- 22 years of PYQs (2003-2024) — Prelims and Mains patterns
+- 22 years of PYQs (2003-2024) â€” Prelims and Mains patterns
 - Standard references: Laxmikanth (Polity), Bipin Chandra (Modern History), Ramesh Singh (Economy), Shankar IAS (Environment), NCERTs Class 6-12
 - Current affairs analysis with GS syllabus mapping
 
@@ -62,7 +62,7 @@ export const UPSC_MENTOR_SYSTEM = `You are Lakshya, an elite AI mentor for UPSC 
 - Highlight PYQ frequency ("Asked 4 times 2015-2023")
 
 ### For Mains Questions
-- Structure: Introduction → Arguments/Analysis → Examples → Conclusion
+- Structure: Introduction â†’ Arguments/Analysis â†’ Examples â†’ Conclusion
 - Map to GS paper and word count (150w = 10 marks, 250w = 15 marks)
 - Use: "MAINS FRAMEWORK:" prefix for answer structure
 - Give specific data, SC cases, committee names, schemes
@@ -75,12 +75,12 @@ When asked to generate questions:
 
 ### Always Include
 - **Bold** key terms, case names, article numbers, scheme names
-- "PYQ CONNECT:" — link to past exam questions
-- "UPSC ANGLE:" — what specifically to remember for exam
+- "PYQ CONNECT:" â€” link to past exam questions
+- "UPSC ANGLE:" â€” what specifically to remember for exam
 
 Be a strict but encouraging coach. Every sentence helps Saurabh crack the exam.`;
 
-// ── Current affairs processing prompt ────────────────────────
+// â”€â”€ Current affairs processing prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const AFFAIRS_PROCESSOR_SYSTEM = `You are a UPSC Current Affairs Analyst. Given a news article headline and summary, extract structured UPSC-relevant intelligence.
 
 Respond ONLY with valid JSON in exactly this format:
@@ -98,7 +98,7 @@ Respond ONLY with valid JSON in exactly this format:
 
 Priority: high = direct UPSC syllabus + recent development; normal = syllabus-adjacent; low = general awareness.`;
 
-// ── Streaming chat — routes to correct provider ────────────────
+// â”€â”€ Streaming chat â€” routes to correct provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function* streamChat(
   messages: { role: "user" | "assistant"; content: string }[],
   modelId: ModelId = DEFAULT_MODEL,
@@ -111,7 +111,7 @@ export async function* streamChat(
   }
 }
 
-// ── Gemini streaming ──────────────────────────────────────────
+// â”€â”€ Gemini streaming â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function* streamGemini(
   messages: { role: "user" | "assistant"; content: string }[],
   apiId: string,
@@ -137,7 +137,7 @@ async function* streamGemini(
   }
 }
 
-// ── Groq streaming ────────────────────────────────────────────
+// â”€â”€ Groq streaming â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function* streamGroq(
   messages: { role: "user" | "assistant"; content: string }[],
   apiId: string,
@@ -158,7 +158,7 @@ async function* streamGroq(
   }
 }
 
-// ── Affairs processor — always uses Gemini (needs large context) ──
+// â”€â”€ Affairs processor â€” always uses Gemini (needs large context) â”€â”€
 export async function processAffair(
   headline: string,
   summary: string,
@@ -167,7 +167,7 @@ export async function processAffair(
   prelims: string; mains: string; interview: string;
   gsMapping: string[]; tags: string[]; priority: "high" | "normal" | "low";
 }> {
-  const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
   const result = await model.generateContent({
     systemInstruction: AFFAIRS_PROCESSOR_SYSTEM,
     contents: [{ role: "user", parts: [{ text: `Headline: ${headline}\n\nSummary: ${summary}` }] }],
@@ -186,17 +186,17 @@ export async function processAffair(
   }
 }
 
-// ── NCERT / Book batch processor ─────────────────────────────
+// â”€â”€ NCERT / Book batch processor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function processDocument(
   content: string,
   task: "summarise" | "generate_mcqs" | "generate_mains" | "extract_facts",
   context?: string,
 ): Promise<string> {
-  const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const prompts: Record<typeof task, string> = {
     summarise: `Summarise this UPSC study material in a structured format:\n- Key concepts with definitions\n- Important facts and dates\n- UPSC relevance (which GS paper, which topics)\n- High-yield points for Prelims\n\nContent:\n${content}`,
-    generate_mcqs: `Generate 20 UPSC Prelims-style MCQs from this content. Format each as:\nQ[n]. [Question]\nA) [Option] B) [Option] C) [Option] D) [Option]\nAnswer: [Letter] — [Brief explanation]\n\n${context ? `Focus on: ${context}\n\n` : ""}Content:\n${content}`,
+    generate_mcqs: `Generate 20 UPSC Prelims-style MCQs from this content. Format each as:\nQ[n]. [Question]\nA) [Option] B) [Option] C) [Option] D) [Option]\nAnswer: [Letter] â€” [Brief explanation]\n\n${context ? `Focus on: ${context}\n\n` : ""}Content:\n${content}`,
     generate_mains: `Generate 5 UPSC Mains questions from this content with 250-word model answers. Cover GS-I, GS-II, GS-III angles.\n\n${context ? `Focus on: ${context}\n\n` : ""}Content:\n${content}`,
     extract_facts: `Extract all UPSC-important facts from this content:\n- Dates and events\n- Constitutional articles/provisions\n- Important bodies and their roles\n- Data and statistics\n- Acts and committees\n\nContent:\n${content}`,
   };
