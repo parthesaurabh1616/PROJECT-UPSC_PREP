@@ -6,11 +6,13 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
 import { StatusDot } from "@/components/ui";
 import { user } from "@/lib/data";
+import { MiniGlobe } from "@/components/MiniGlobe";
 
 interface NavItem {
   label: string;
@@ -23,34 +25,110 @@ const NAV: { section: string; items: NavItem[] }[] = [
   {
     section: "Workspace",
     items: [
-      { label: "Dashboard",       href: "/command",         icon: LayoutDashboard },
-      { label: "AI Mentor",       href: "/mentor",           icon: Sparkles, badge: "AI" },
-      { label: "Notes",           href: "/notes",            icon: FileText },
-      { label: "Current Affairs", href: "/current-affairs",  icon: Newspaper },
-      { label: "Revision",        href: "/revision",         icon: RotateCcw },
-      { label: "Library",         href: "/library",          icon: Library },
+      { label: "Dashboard",       href: "/command",        icon: LayoutDashboard },
+      { label: "AI Mentor",       href: "/mentor",          icon: Sparkles, badge: "AI" },
+      { label: "Notes",           href: "/notes",           icon: FileText },
+      { label: "Current Affairs", href: "/current-affairs", icon: Newspaper },
+      { label: "Revision",        href: "/revision",        icon: RotateCcw },
+      { label: "Library",         href: "/library",         icon: Library },
     ],
   },
 ];
 
-const PAGE_META: Record<string, { eyebrow: string; title: string; sub: string }> = {
-  "/command":         { eyebrow: "COMMAND CENTER",   title: "Dashboard",       sub: "Your daily preparation intelligence" },
-  "/mentor":          { eyebrow: "AI MENTOR",         title: "Strategist",      sub: "Grounded in syllabus, PYQs and your notes" },
-  "/notes":           { eyebrow: "KNOWLEDGE VAULT",   title: "Notes",           sub: "Your second brain" },
-  "/current-affairs": { eyebrow: "INTELLIGENCE FEED", title: "Current Affairs", sub: "Today's news, mapped to the GS syllabus" },
-  "/revision":        { eyebrow: "REVISION ENGINE",   title: "Spaced Repetition", sub: "SM-2 algorithm · forgetting-curve aware" },
-  "/library":         { eyebrow: "ARCHIVE",           title: "Library",         sub: "Books, newspapers and papers" },
+const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
+  "/command":         { eyebrow: "COMMAND CENTER",    title: "Dashboard" },
+  "/mentor":          { eyebrow: "AI MENTOR",          title: "Strategist" },
+  "/notes":           { eyebrow: "KNOWLEDGE VAULT",    title: "Notes" },
+  "/current-affairs": { eyebrow: "INTELLIGENCE FEED",  title: "Current Affairs" },
+  "/revision":        { eyebrow: "REVISION ENGINE",    title: "Spaced Repetition" },
+  "/library":         { eyebrow: "ARCHIVE",            title: "Library" },
 };
 
+/* ── Global Intelligence widget (topbar) ─────────────────────── */
+function GlobalIntelligence() {
+  const [total,    setTotal]    = useState<number | null>(null);
+  const [high,     setHigh]     = useState(0);
+  const [syncing,  setSyncing]  = useState(false);
+  const [syncDone, setSyncDone] = useState("");
+  const isAffairs = usePathname() === "/current-affairs";
+
+  useEffect(() => {
+    fetch("/api/affairs")
+      .then((r) => r.json())
+      .then((d: unknown) => {
+        if (!Array.isArray(d)) return;
+        setTotal(d.length);
+        setHigh((d as { priority: string }[]).filter((a) => a.priority === "high").length);
+      })
+      .catch(() => {});
+  }, [syncing]);
+
+  const sync = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true); setSyncDone("");
+    try {
+      const res = await fetch("/api/affairs/ingest", { method: "POST" });
+      const d   = await res.json() as { ingested?: number; error?: string };
+      setSyncDone(d.error ? "Key needed" : `+${d.ingested ?? 0} new`);
+    } catch { setSyncDone("Failed"); }
+    setSyncing(false);
+    setTimeout(() => setSyncDone(""), 4000);
+  }, [syncing]);
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* Globe + stats */}
+      <Link
+        href="/current-affairs"
+        className="group flex items-center gap-2.5 rounded-xl border border-line bg-surface/60 px-3 py-1.5 backdrop-blur transition-all hover:border-accent/40 hover:bg-surface"
+      >
+        <MiniGlobe size={36} />
+
+        <div className="min-w-0">
+          <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-ink-3 leading-none">
+            Global Intelligence
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <span className="font-display text-[14px] font-semibold leading-none text-ink">
+              {total === null ? "—" : total}
+            </span>
+            <span className="font-mono text-[9.5px] text-ink-3">signals</span>
+            {high > 0 && (
+              <span className="flex items-center gap-1 rounded-full bg-danger/15 px-1.5 py-0.5 font-mono text-[9px] text-danger">
+                <TrendingUp size={9} />
+                {high} priority
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+
+      {/* Sync button — always visible (not just on affairs page) */}
+      <button
+        onClick={() => { void sync(); }}
+        disabled={syncing}
+        title="Sync latest news"
+        className={cn(
+          "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] transition-all disabled:opacity-60",
+          isAffairs
+            ? "border-accent/50 bg-accent/12 text-accent hover:bg-accent/20"
+            : "border-line bg-surface/60 text-ink-3 hover:border-accent/40 hover:text-accent",
+        )}
+      >
+        {syncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+        <span className="hidden sm:inline">{syncDone || (syncing ? "Syncing…" : "Sync")}</span>
+      </button>
+    </div>
+  );
+}
+
+/* ── Shell ───────────────────────────────────────────────────── */
 export function Shell({ children }: { children: ReactNode }) {
   const pathname       = usePathname();
   const { theme, toggle } = useTheme();
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [syncing, setSyncing]         = useState(false);
-  const [syncDone, setSyncDone]       = useState("");
 
-  const meta = PAGE_META[pathname] ?? { eyebrow: "CONQUER CAPITAL", title: "Workspace", sub: "" };
-  const isAffairs = pathname === "/current-affairs";
+  const meta = PAGE_META[pathname] ?? { eyebrow: "CONQUER CAPITAL", title: "Workspace" };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -61,27 +139,12 @@ export function Shell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const syncNews = useCallback(async () => {
-    if (syncing) return;
-    setSyncing(true); setSyncDone("");
-    try {
-      const res = await fetch("/api/affairs/ingest", { method: "POST" });
-      const d   = await res.json() as { ingested?: number; error?: string };
-      setSyncDone(d.error ? "API key needed" : `+${d.ingested ?? 0} articles`);
-    } catch { setSyncDone("Failed"); }
-    setSyncing(false);
-    setTimeout(() => setSyncDone(""), 4000);
-  }, [syncing]);
-
   return (
-    /* h-screen + overflow-hidden on the grid keeps the sidebar full-height.
-       The <main> below has overflow-y-auto so only that region scrolls. */
     <div className="relative z-[1] grid h-screen grid-cols-[240px_1fr] grid-rows-[56px_1fr] overflow-hidden">
 
       {/* ── SIDEBAR ── */}
       <aside className="row-span-2 flex flex-col overflow-y-auto border-r border-line bg-surface/60 px-3 py-4 backdrop-blur-xl">
 
-        {/* Brand */}
         <Link href="/command" className="mb-4 flex items-center gap-2.5 border-b border-line-subtle px-2 pb-4">
           <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-gradient-to-br from-accent/30 via-accent-2/30 to-analyt/30 font-display text-[13px] font-bold text-ink">
             <span className="relative z-10">CC</span>
@@ -97,7 +160,6 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </Link>
 
-        {/* Nav */}
         <nav className="flex-1">
           {NAV.map((group) => (
             <div key={group.section} className="mb-2">
@@ -130,7 +192,6 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        {/* Streak */}
         <div className="border-t border-line-subtle pt-3">
           <div className="relative overflow-hidden rounded-xl border border-line bg-surface-2/60 p-3 backdrop-blur">
             <div aria-hidden className="pointer-events-none absolute -right-4 -top-6 h-20 w-20 rounded-full bg-accent/14 blur-2xl" />
@@ -152,30 +213,29 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* ── TOPBAR ── */}
-      <header className="z-10 flex items-center gap-3 border-b border-line bg-bg/80 px-6 backdrop-blur-2xl">
-        <div className="min-w-0">
-          <p className="eyebrow flex items-center gap-1.5">
+      <header className="z-10 flex items-center gap-3 border-b border-line bg-bg/80 px-5 backdrop-blur-2xl">
+
+        {/* Page title */}
+        <div className="min-w-0 shrink-0">
+          <p className="eyebrow flex items-center gap-1.5 leading-none">
             <StatusDot variant="amber" />
             {meta.eyebrow}
           </p>
-          <h1 className="truncate font-display text-[18px] font-semibold leading-none tracking-tight text-ink">
+          <h1 className="truncate font-display text-[17px] font-semibold leading-tight tracking-tight text-ink">
             {meta.title}
           </h1>
         </div>
 
-        {/* Current Affairs sync — always visible in topbar */}
-        {isAffairs && (
-          <button onClick={() => { void syncNews(); }}
-            disabled={syncing}
-            className="flex items-center gap-1.5 rounded-lg border border-accent/50 bg-accent/12 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.16em] text-accent transition-all hover:bg-accent/20 disabled:opacity-60">
-            {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            {syncDone || (syncing ? "Syncing…" : "Sync News")}
-          </button>
-        )}
+        <div className="mx-3 h-8 w-px shrink-0 bg-line" />
+
+        {/* ── Global Intelligence — globe + signal count + sync ── */}
+        <GlobalIntelligence />
 
         {/* Search */}
-        <button onClick={() => setPaletteOpen(true)}
-          className="ml-auto flex w-64 items-center gap-2 rounded-xl border border-line bg-surface/60 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink-3 backdrop-blur hover:border-accent/40 hover:text-ink-2">
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="ml-auto flex w-56 shrink-0 items-center gap-2 rounded-xl border border-line bg-surface/60 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink-3 backdrop-blur hover:border-accent/40 hover:text-ink-2"
+        >
           <Search size={13} />
           Search…
           <span className="ml-auto flex items-center gap-0.5 rounded border border-line bg-surface-2/60 px-1.5 py-0.5 text-[9px] normal-case tracking-normal">
@@ -183,7 +243,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </span>
         </button>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           <IconBtn label="Toggle theme" onClick={toggle}>
             {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           </IconBtn>
@@ -193,7 +253,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* ── MAIN CONTENT — scrolls independently ── */}
+      {/* ── MAIN ── */}
       <main className="overflow-y-auto scroll-smooth px-7 py-6">
         {children}
       </main>
