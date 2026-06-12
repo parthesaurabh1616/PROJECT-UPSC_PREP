@@ -15,9 +15,13 @@
     "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "@aws-sdk/client-s3": "^3.1067.0",
+    "@aws-sdk/s3-request-presigner": "^3.1067.0",
     "@prisma/client": "5.22.0",
     "@supabase/supabase-js": "2.46.1",
     "clsx": "2.1.1",
+    "fast-xml-parser": "^5.8.0",
     "framer-motion": "11.11.17",
     "lenis": "1.1.20",
     "lucide-react": "0.461.0",
