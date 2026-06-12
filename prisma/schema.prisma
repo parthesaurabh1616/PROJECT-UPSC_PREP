@@ -1,0 +1,113 @@
+// ─────────────────────────────────────────────────────────────
+// UPSC PREP OS — Prisma Schema
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── User ──────────────────────────────────────────────────────
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  notes        Note[]
+  revisions    Revision[]
+  studySessions StudySession[]
+  tasks        Task[]
+
+  @@map("users")
+}
+
+// ── Notes (second brain) ──────────────────────────────────────
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  subject   String?
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  revisions Revision[]
+
+  @@map("notes")
+}
+
+// ── Revision cards (spaced repetition) ───────────────────────
+model Revision {
+  id          String   @id @default(cuid())
+  front       String
+  back        String
+  subject     String?
+  difficulty  Int      @default(3)      // 1-5
+  interval    Int      @default(1)      // days
+  dueAt       DateTime @default(now())
+  reviewCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  noteId      String?
+  note        Note?    @relation(fields: [noteId], references: [id], onDelete: SetNull)
+
+  @@map("revisions")
+}
+
+// ── Study Sessions (daily tracking) ──────────────────────────
+model StudySession {
+  id        String   @id @default(cuid())
+  date      DateTime @default(now())
+  duration  Int      // minutes
+  subject   String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("study_sessions")
+}
+
+// ── Tasks (daily war room) ────────────────────────────────────
+model Task {
+  id        String   @id @default(cuid())
+  title     String
+  subject   String?
+  done      Boolean  @default(false)
+  dueAt     DateTime?
+  priority  Int      @default(2)   // 1=low 2=mid 3=high
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tasks")
+}
+
+// ── Current Affairs ───────────────────────────────────────────
+model CurrentAffair {
+  id          String   @id @default(cuid())
+  headline    String
+  summary     String
+  whyInNews   String?
+  gsMapping   String[]
+  sourceUrl   String?
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@map("current_affairs")
+}

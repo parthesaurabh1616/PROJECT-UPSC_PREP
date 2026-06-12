@@ -1,0 +1,205 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════
+   UPSC PREP OS — design tokens
+   Palette aligned with the Saurabh portfolio:
+   pure black canvas · white type · blue/purple/cyan accents.
+   ════════════════════════════════════════════════════════════ */
+
+:root {
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-editorial: "Space Grotesk", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+
+/* DEFAULT = dark (the canonical experience) */
+:root,
+[data-theme="dark"] {
+  --bg:           0 0 0;             /* #000000  pure black */
+  --bg-subtle:    5 6 10;            /* #05060a  ink-900 */
+  --surface:      10 13 20;          /* #0a0d14  ink-800 */
+  --surface-2:    15 19 32;          /* #0f1320  ink-700 */
+  --line:         36 41 56;          /* subtle border ~ white/10 on black */
+  --line-subtle:  24 28 38;          /* whisper border */
+  --ink:          255 255 255;       /* pure white */
+  --ink-2:        196 202 218;       /* ~white/80 */
+  --ink-3:        130 140 160;       /* ~white/55 */
+
+  /* Accents — portfolio palette */
+  --accent:       59 130 246;        /* #3b82f6 blue */
+  --accent-2:     139 92 246;        /* #8b5cf6 purple */
+  --analyt:       34 211 238;        /* #22d3ee cyan */
+  --gold:         245 158 11;        /* #f59e0b amber signal */
+  --success:      16 185 129;        /* #10b981 green signal */
+  --warning:      245 158 11;        /* #f59e0b amber */
+  --danger:       239 68 68;         /* #ef4444 red */
+
+  /* Grid pattern lines — blue */
+  --grid-tint:    59 130 246;
+  --grid-alpha:   0.07;
+
+  color-scheme: dark;
+}
+
+/* Light theme — a clean light counterpart (toggle stays). */
+[data-theme="light"] {
+  --bg:           255 255 255;
+  --bg-subtle:    245 247 251;
+  --surface:      255 255 255;
+  --surface-2:    248 250 253;
+  --line:         226 230 240;
+  --line-subtle:  238 240 248;
+  --ink:          15 23 42;
+  --ink-2:        71 85 105;
+  --ink-3:        148 163 184;
+
+  --accent:       37 99 235;
+  --accent-2:     109 40 217;
+  --analyt:       6 182 212;
+  --gold:         202 138 4;
+  --success:      16 185 129;
+  --warning:      217 119 6;
+  --danger:       220 38 38;
+
+  --grid-tint:    37 99 235;
+  --grid-alpha:   0.06;
+
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--ink));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  transition: background-color .35s ease, color .35s ease;
+}
+
+/* Engineering grid — fixed, behind everything */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(var(--grid-tint) / var(--grid-alpha)) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--grid-tint) / var(--grid-alpha)) 1px, transparent 1px);
+  background-size: 60px 60px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+}
+
+::selection { background: rgb(var(--accent) / 0.40); color: rgb(var(--ink)); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgb(var(--bg-subtle)); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgb(var(--accent) / .8), rgb(var(--accent-2) / .8));
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgb(var(--accent)), rgb(var(--accent-2)));
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--accent) / 0.6);
+  outline-offset: 2px;
+}
+
+/* ── Typography ── */
+.font-display   { font-family: var(--font-display); }
+.font-editorial { font-family: var(--font-editorial); }
+
+/* ── Component layer ── */
+@layer components {
+  .glass {
+    @apply border bg-white/[0.025] backdrop-blur-xl;
+    border-color: rgb(var(--line) / 0.7);
+  }
+  [data-theme="light"] .glass {
+    background: rgba(255, 255, 255, 0.62);
+  }
+
+  .panel {
+    @apply rounded-2xl border border-line bg-surface shadow-soft transition-all duration-300;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[10.5px] uppercase tracking-[0.32em] text-ink-3;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1
+           font-mono text-[10px] uppercase tracking-[0.18em];
+  }
+
+  .section-title {
+    @apply font-display text-3xl font-semibold tracking-tight md:text-4xl lg:text-5xl;
+  }
+
+  .editorial {
+    @apply font-display font-semibold tracking-tight;
+  }
+
+  /* Portfolio-exact gradient text */
+  .text-gradient {
+    background: linear-gradient(135deg, #ffffff 0%, #93c5fd 35%, #a78bfa 70%, #f0abfc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-cool {
+    background: linear-gradient(135deg, #60a5fa 0%, #22d3ee 50%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Prose for AI answers and notes */
+  .prose-os h2 { @apply font-display text-xl font-semibold text-ink mt-7 mb-2; }
+  .prose-os h3 { @apply font-display text-base font-semibold text-ink mt-5 mb-1.5; }
+  .prose-os h4 { @apply font-display text-[15px] font-semibold text-ink mt-4 mb-1; }
+  .prose-os p  { @apply my-2 leading-[1.75] text-ink-2; }
+  .prose-os ul { @apply my-2 space-y-1 pl-5 text-ink-2; }
+  .prose-os li::marker { color: rgb(var(--accent)); }
+  .prose-os strong { @apply font-semibold text-ink; }
+  .prose-os code {
+    @apply rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[0.85em] text-ink;
+  }
+
+  .callout {
+    @apply my-3 rounded-r-lg border-l-[3px] border-accent bg-accent/[0.08] px-4 py-3 text-[13px] text-ink;
+  }
+  .callout-green {
+    @apply my-3 rounded-r-lg border-l-[3px] border-accent-2 bg-accent-2/[0.08] px-4 py-3 text-[13px] text-ink;
+  }
+}
+
+@layer utilities {
+  .mask-radial {
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+    mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  }
+  .mask-fade-bottom {
+    -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+  }
+  .noise::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+  }
+}

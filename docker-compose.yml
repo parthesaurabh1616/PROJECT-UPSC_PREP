@@ -1,0 +1,72 @@
+# ──────────────────────────────────────────────────────────────
+# UPSC PREP OS — local infrastructure
+# Start:  docker compose up -d
+# Stop:   docker compose down
+# ──────────────────────────────────────────────────────────────
+services:
+
+  # ── PostgreSQL with pgvector (structured data + AI vector search) ──
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: upsc-os-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: upsc_os
+      POSTGRES_PASSWORD: upsc_os_dev_pw
+      POSTGRES_DB: upsc_os
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./.docker-data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U upsc_os"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (cache + background job queue) ──
+  redis:
+    image: redis:7-alpine
+    container_name: upsc-os-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./.docker-data/redis:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  # ── MinIO (S3-compatible storage for books, newspapers, scans) ──
+  minio:
+    image: minio/minio:latest
+    container_name: upsc-os-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: upsc_os
+      MINIO_ROOT_PASSWORD: upsc_os_dev_pw
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./.docker-data/minio:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── One-shot: create the storage bucket on first boot ──
+  minio-init:
+    image: minio/mc:latest
+    container_name: upsc-os-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      /usr/bin/mc alias set local http://minio:9000 upsc_os upsc_os_dev_pw;
+      /usr/bin/mc mb --ignore-existing local/upsc-os-library;
+      /usr/bin/mc anonymous set download local/upsc-os-library;
+      echo 'UPSC OS storage bucket ready.';
+      exit 0;
+      "
