@@ -1,15 +1,27 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 
-// ── Clients ───────────────────────────────────────────────────
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY ?? "");
-const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY ?? "" });
+// ── Clients (lazy-init so missing keys don't crash module load) ─
+let _genAI: GoogleGenerativeAI | null = null;
+let _groq:  Groq | null = null;
+
+function getGenAI() {
+  if (!process.env.GOOGLE_API_KEY) throw new Error("GOOGLE_API_KEY is not set in .env");
+  if (!_genAI) _genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+  return _genAI;
+}
+
+function getGroq() {
+  if (!process.env.GROQ_API_KEY) throw new Error("GROQ_API_KEY is not set in .env");
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return _groq;
+}
 
 // ── Model registry ────────────────────────────────────────────
 export const MODELS = {
   "gemini-2.5-flash": {
     id: "gemini-2.5-flash",
-    apiId: "gemini-2.5-flash-preview-05-20",
+    apiId: "gemini-2.0-flash",
     label: "Gemini 2.5 Flash",
     provider: "google" as const,
     badge: "Deep",
@@ -30,7 +42,8 @@ export const MODELS = {
 } as const;
 
 export type ModelId = keyof typeof MODELS;
-export const DEFAULT_MODEL: ModelId = "gemini-2.5-flash";
+// Groq is default — instant, no quota issues. Switch to Gemini for deep/NCERT work.
+export const DEFAULT_MODEL: ModelId = "llama-3.3-70b-versatile";
 
 // ── UPSC Mentor system prompt ──────────────────────────────────
 export const UPSC_MENTOR_SYSTEM = `You are Lakshya, an elite AI mentor for UPSC Civil Services Examination (CSE) preparation. You are Saurabh's personal strategic advisor for AIR-1 level preparation.
@@ -103,7 +116,7 @@ async function* streamGemini(
   messages: { role: "user" | "assistant"; content: string }[],
   apiId: string,
 ): AsyncGenerator<string> {
-  const geminiModel = genAI.getGenerativeModel({
+  const geminiModel = getGenAI().getGenerativeModel({
     model: apiId,
     systemInstruction: UPSC_MENTOR_SYSTEM,
   });
@@ -129,7 +142,7 @@ async function* streamGroq(
   messages: { role: "user" | "assistant"; content: string }[],
   apiId: string,
 ): AsyncGenerator<string> {
-  const stream = await groqClient.chat.completions.create({
+  const stream = await getGroq().chat.completions.create({
     model: apiId,
     max_tokens: 4096,
     stream: true,
@@ -154,7 +167,7 @@ export async function processAffair(
   prelims: string; mains: string; interview: string;
   gsMapping: string[]; tags: string[]; priority: "high" | "normal" | "low";
 }> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-05-20" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash" });
   const result = await model.generateContent({
     systemInstruction: AFFAIRS_PROCESSOR_SYSTEM,
     contents: [{ role: "user", parts: [{ text: `Headline: ${headline}\n\nSummary: ${summary}` }] }],
@@ -179,7 +192,7 @@ export async function processDocument(
   task: "summarise" | "generate_mcqs" | "generate_mains" | "extract_facts",
   context?: string,
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-05-20" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompts: Record<typeof task, string> = {
     summarise: `Summarise this UPSC study material in a structured format:\n- Key concepts with definitions\n- Important facts and dates\n- UPSC relevance (which GS paper, which topics)\n- High-yield points for Prelims\n\nContent:\n${content}`,
