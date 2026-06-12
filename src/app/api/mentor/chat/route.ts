@@ -1,14 +1,16 @@
 import { NextRequest } from "next/server";
 import { prisma, ensureDemoUser, DEMO_USER_ID } from "@/lib/db";
-import { streamChat } from "@/lib/ai";
+import { streamChat, DEFAULT_MODEL, type ModelId } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   await ensureDemoUser();
 
-  const { conversationId, message } = await req.json() as {
+  const { conversationId, message, modelId } = await req.json() as {
     conversationId: string;
     message: string;
+    modelId?: ModelId;
   };
+  const selectedModel: ModelId = modelId ?? DEFAULT_MODEL;
 
   // Ensure conversation belongs to user
   const conv = await prisma.conversation.findFirst({
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const chunk of streamChat(history)) {
+        for await (const chunk of streamChat(history, selectedModel)) {
           fullResponse += chunk;
           controller.enqueue(encoder.encode(chunk));
         }

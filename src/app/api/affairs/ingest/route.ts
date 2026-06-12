@@ -33,9 +33,9 @@ async function fetchRSS(url: string): Promise<RSSItem[]> {
 }
 
 export async function POST() {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.GOOGLE_API_KEY) {
     return Response.json(
-      { error: "ANTHROPIC_API_KEY not set. Add it to .env to enable AI processing." },
+      { error: "GOOGLE_API_KEY not set. Add your Gemini API key to .env to enable AI processing." },
       { status: 400 },
     );
   }
