@@ -229,11 +229,14 @@ model CurrentAffair {
   examScope   String[] @default(["UPSC", "MPSC"]) // which exams this item is relevant to
   lang        String   @default("en")      // "en" | "mr"
   priority    String   @default("normal") // "high" | "normal" | "low"
+  importanceScore Int  @default(0)         // 0-100 intelligence score (Live Actions ranking)
+  layer       String   @default("india")   // "global" | "india" | "maharashtra"
   publishedAt DateTime @default(now())
   createdAt   DateTime @default(now())
 
   @@index([category])
   @@index([examScope])
+  @@index([importanceScore])
   @@index([publishedAt])
   @@map("current_affairs")
 }

@@ -19,6 +19,9 @@ export interface Article {
   category?: string | null;
   sourceUrl?: string | null;
   publishedAt?: string;
+  importanceScore?: number; // 0-100; when present, drives marker size/colour
+  tier?: string;            // critical | high | normal | low
+  layer?: string;           // global | india | maharashtra
 }
 
 /* ── Geographic coordinate lookup ──────────────────────────── */
@@ -229,14 +232,29 @@ export function GlobeCanvas({
       if (!visible) return;
 
       const depth  = Math.max(0, (z + 1) / 2);
-      const isHigh = article.priority === "high";
       const isHov  = hovered.current === i;
       const pulse  = isHov ? 1.5 : 1 + 0.25 * Math.sin(t * 1.8 + i * 0.9);
-      const baseR  = (isHigh ? 5 : 3.5) * depth;
+
+      // Score-driven mode (Live Actions) vs legacy priority mode (Current Affairs).
+      const hasScore = typeof article.importanceScore === "number";
+      const tier = article.tier;
+      const isHigh = hasScore ? (tier === "critical" || tier === "high") : article.priority === "high";
+      const isCritical = hasScore && tier === "critical";
+
+      // Size scales with score (3 → 6.5px) when available.
+      const sizeBase = hasScore ? 3 + (article.importanceScore! / 100) * 3.5 : (isHigh ? 5 : 3.5);
+      const baseR  = sizeBase * depth;
       const dotR   = baseR * pulse;
       const glowR  = dotR * (isHov ? 8 : 5);
 
-      const [cr, cg, cb] = isHigh ? [239, 68, 68] : isHov ? [139, 92, 246] : [59, 130, 246];
+      // Colour by tier: critical=red, high=amber, normal=blue, low=slate. Hover=purple.
+      let cr = 59, cg = 130, cb = 246;
+      if (isHov) { cr = 139; cg = 92; cb = 246; }
+      else if (hasScore) {
+        if (tier === "critical") { cr = 239; cg = 68; cb = 68; }
+        else if (tier === "high") { cr = 245; cg = 158; cb = 11; }
+        else if (tier === "low") { cr = 100; cg = 116; cb = 139; }
+      } else if (isHigh) { cr = 239; cg = 68; cb = 68; }
 
       // Outer glow
       const glow = ctx.createRadialGradient(x, y, 0, x, y, glowR);
@@ -253,8 +271,8 @@ export function GlobeCanvas({
       ctx.arc(x, y, dotR, 0, Math.PI * 2);
       ctx.fill();
 
-      // White centre for high priority
-      if (isHigh && depth > 0.5) {
+      // White centre for the loudest events
+      if ((isCritical || (!hasScore && isHigh)) && depth > 0.5) {
         ctx.fillStyle = rgba(255, 255, 255, 0.7 * depth);
         ctx.beginPath();
         ctx.arc(x, y, dotR * 0.35, 0, Math.PI * 2);

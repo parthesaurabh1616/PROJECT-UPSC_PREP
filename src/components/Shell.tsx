@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp,
+  TrendingUp, Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -30,6 +30,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { label: "AI Mentor",       href: "/mentor",          icon: Sparkles, badge: "AI" },
       { label: "Notes",           href: "/notes",           icon: FileText },
       { label: "Current Affairs", href: "/current-affairs", icon: Newspaper },
+      { label: "Live Actions",    href: "/intelligence",    icon: Radio, badge: "LIVE" },
       { label: "Revision",        href: "/revision",        icon: RotateCcw },
       { label: "Library",         href: "/library",         icon: Library },
     ],
@@ -41,6 +42,7 @@ const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/mentor":          { eyebrow: "AI MENTOR",          title: "Strategist" },
   "/notes":           { eyebrow: "KNOWLEDGE VAULT",    title: "Notes" },
   "/current-affairs": { eyebrow: "INTELLIGENCE FEED",  title: "Current Affairs" },
+  "/intelligence":    { eyebrow: "COMMAND CENTER",     title: "Live Actions" },
   "/revision":        { eyebrow: "REVISION ENGINE",    title: "Spaced Repetition" },
   "/library":         { eyebrow: "ARCHIVE",            title: "Library" },
 };
@@ -234,6 +236,18 @@ export function Shell({ children }: { children: ReactNode }) {
 
         {/* ── Global Intelligence — globe + signal count + sync ── */}
         <GlobalIntelligence />
+
+        {/* ── Live Actions — intelligence command center ── */}
+        <Link href="/intelligence"
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] transition-all",
+            pathname === "/intelligence"
+              ? "border-danger/50 bg-danger/12 text-danger"
+              : "border-line bg-surface/60 text-ink-3 hover:border-danger/40 hover:text-danger",
+          )}>
+          <Radio size={12} className="animate-pulse" />
+          <span className="hidden lg:inline">Live Actions</span>
+        </Link>
 
         {/* Search */}
         <button

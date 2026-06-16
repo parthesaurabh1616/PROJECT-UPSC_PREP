@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { processAffair } from "@/lib/ai";
+import { scoreAffair } from "@/lib/scoring";
 import { FEEDS, type Feed, type FeedCategory } from "@/lib/feeds";
 import { XMLParser } from "fast-xml-parser";
 
@@ -173,6 +174,14 @@ export async function POST() {
   await pooled(batch, 3, async (item) => {
     try {
       const processed = await processAffair(item.headline, item.summary);
+      const { score, layer } = scoreAffair({
+        gsMapping: processed.gsMapping,
+        tags: processed.tags,
+        category: item.category,
+        source: item.source,
+        priority: processed.priority,
+        publishedAt: item.publishedAt,
+      });
       await prisma.currentAffair.create({
         data: {
           headline: item.headline,
@@ -186,6 +195,8 @@ export async function POST() {
           gsMapping: processed.gsMapping,
           tags: processed.tags,
           priority: processed.priority,
+          importanceScore: score,
+          layer,
           source: item.source,
           sourceUrl: item.link,
           category: item.category,
