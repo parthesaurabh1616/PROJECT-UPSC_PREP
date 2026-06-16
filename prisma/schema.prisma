@@ -225,12 +225,15 @@ model CurrentAffair {
   tags        String[]
   source      String?
   sourceUrl   String?
-  category    String   @default("news")   // "pib" | "editorial" | "international" | "economy" | "news"
+  category    String   @default("news")   // "pib" | "editorial" | "international" | "economy" | "news" | "maharashtra"
+  examScope   String[] @default(["UPSC", "MPSC"]) // which exams this item is relevant to
+  lang        String   @default("en")      // "en" | "mr"
   priority    String   @default("normal") // "high" | "normal" | "low"
   publishedAt DateTime @default(now())
   createdAt   DateTime @default(now())
 
   @@index([category])
+  @@index([examScope])
   @@index([publishedAt])
   @@map("current_affairs")
 }

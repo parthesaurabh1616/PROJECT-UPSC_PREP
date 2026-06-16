@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
-type CatKey = "all" | "pib" | "editorial" | "news" | "economy" | "international";
+type CatKey = "all" | "pib" | "editorial" | "news" | "economy" | "international" | "maharashtra";
 
 const TABS: { key: CatKey; label: string }[] = [
   { key: "all",           label: "All" },
@@ -17,6 +17,7 @@ const TABS: { key: CatKey; label: string }[] = [
   { key: "news",          label: "National" },
   { key: "economy",       label: "Economy" },
   { key: "international", label: "World" },
+  { key: "maharashtra",  label: "Maharashtra" },
 ];
 
 export default function CurrentAffairsPage() {
@@ -89,6 +90,7 @@ export default function CurrentAffairsPage() {
     news: articles.filter((a) => a.category === "news").length,
     economy: articles.filter((a) => a.category === "economy").length,
     international: articles.filter((a) => a.category === "international").length,
+    maharashtra: articles.filter((a) => a.category === "maharashtra").length,
   };
 
   return (
@@ -118,9 +120,9 @@ export default function CurrentAffairsPage() {
         </div>
       </div>
 
-      {/* Category tabs */}
+      {/* Category tabs — Maharashtra tab only shows when MPSC news is present */}
       <div className="flex animate-fade-up flex-wrap gap-1.5" style={{ animationDelay: "40ms" }}>
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.key !== "maharashtra" || counts.maharashtra > 0).map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] transition-colors",
@@ -280,11 +282,12 @@ export default function CurrentAffairsPage() {
 }
 
 const CAT_BADGE: Record<string, { label: string; cls: string }> = {
-  pib:           { label: "PIB",       cls: "bg-gold/15 text-gold border-gold/30" },
-  editorial:     { label: "Editorial", cls: "bg-accent-2/15 text-accent-2 border-accent-2/30" },
-  economy:       { label: "Economy",   cls: "bg-success/15 text-success border-success/30" },
-  international: { label: "World",      cls: "bg-analyt/15 text-analyt border-analyt/30" },
-  news:          { label: "News",      cls: "bg-surface-2 text-ink-3 border-line" },
+  pib:           { label: "PIB",         cls: "bg-gold/15 text-gold border-gold/30" },
+  editorial:     { label: "Editorial",   cls: "bg-accent-2/15 text-accent-2 border-accent-2/30" },
+  economy:       { label: "Economy",     cls: "bg-success/15 text-success border-success/30" },
+  international: { label: "World",        cls: "bg-analyt/15 text-analyt border-analyt/30" },
+  maharashtra:   { label: "Maharashtra", cls: "bg-gold/15 text-gold border-gold/30" },
+  news:          { label: "News",        cls: "bg-surface-2 text-ink-3 border-line" },
 };
 
 function ArticleCard({ article: a, active, saved, onSave, onClick }: {

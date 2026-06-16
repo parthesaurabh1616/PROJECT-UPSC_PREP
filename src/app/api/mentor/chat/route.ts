@@ -1,11 +1,16 @@
 import { NextRequest } from "next/server";
 import { prisma, ensureDemoUser, DEMO_USER_ID } from "@/lib/db";
-import { streamChat, DEFAULT_MODEL, MODELS, type ModelId } from "@/lib/ai";
+import { streamChat, DEFAULT_MODEL, MODELS, mentorSystemFor, type ModelId } from "@/lib/ai";
+import { getActiveProfile } from "@/lib/exam";
 
 const GROQ_FALLBACK: ModelId = "llama-3.3-70b-versatile";
 
 export async function POST(req: NextRequest) {
   await ensureDemoUser();
+
+  // Resolve mentor persona from the active exam (UPSC vs MPSC/Maharashtra).
+  const activeProfile = await getActiveProfile().catch(() => null);
+  const systemPrompt = mentorSystemFor(activeProfile?.exam.code);
 
   const { conversationId, message, modelId } = await req.json() as {
     conversationId: string;
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        for await (const chunk of streamChat(history, selectedModel)) {
+        for await (const chunk of streamChat(history, selectedModel, systemPrompt)) {
           send(chunk);
         }
       } catch (primaryErr) {
@@ -73,7 +78,7 @@ export async function POST(req: NextRequest) {
         if (isGemini && groqAvailable && fullResponse.length === 0) {
           // No partial response yet — clean fallback, user won't notice
           try {
-            for await (const chunk of streamChat(history, GROQ_FALLBACK)) {
+            for await (const chunk of streamChat(history, GROQ_FALLBACK, systemPrompt)) {
               send(chunk);
             }
           } catch (fallbackErr) {

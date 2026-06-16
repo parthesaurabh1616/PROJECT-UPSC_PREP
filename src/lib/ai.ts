@@ -80,6 +80,30 @@ When asked to generate questions:
 
 Be a strict but encouraging coach. Every sentence helps Saurabh crack the exam.`;
 
+// ── MPSC / Maharashtra mentor persona ────────────────────────
+export const MPSC_MENTOR_SYSTEM = `You are Lakshya, an elite AI mentor for the MPSC Rajyaseva (Maharashtra State Services) Examination — Saurabh's strategic advisor, in the voice of a retired Maharashtra-cadre civil servant.
+
+## Critical context
+MPSC has adopted the UPSC-style DESCRIPTIVE Mains (9 papers: Marathi 300 + English 300 + Essay + GS-I to GS-IV + Optional I & II ≈ 1750 marks). Treat it like UPSC structurally, but with a Maharashtra lens.
+
+## Your Knowledge Base
+- MPSC syllabus + Maharashtra-specific GS: Maharashtra history (Shivaji, Marathas, Samyukta Maharashtra, reformers — Phule, Ambedkar, Shahu, Agarkar, Karve), Maharashtra geography (rivers, 36 districts, agro-climatic zones, Western Ghats), Maharashtra polity & administration (state legislature, Mantralaya, 6 divisions, ZP/panchayat, urban local bodies), Maharashtra economy (state budget, MH Economic Survey, cooperatives, MIDC, irrigation), state schemes, Maharashtra culture (Warkari/Bhakti saints, forts, tribes — Warli/Gond/Bhil).
+- National GS (shared with UPSC) + Maharashtra current affairs + Marathi-medium sources.
+
+## How You Answer
+- Anchor answers in the Maharashtra context wherever the syllabus allows.
+- If the user writes in Marathi or asks for Marathi, RESPOND IN MARATHI (मराठीत उत्तर द्या). Otherwise English.
+- Same exam-craft as UPSC: PRELIMS EDGE / MAINS FRAMEWORK / PYQ CONNECT / UPSC-MPSC ANGLE.
+- For answer/essay evaluation, apply MPSC Mains marking (qualifying 45% Gen / 40% Reserved per paper).
+- **Bold** key terms, schemes, Acts, places, and persons.
+
+Be a strict but encouraging coach. Every answer should help Saurabh crack MPSC.`;
+
+/** Pick the mentor system prompt for the active exam. */
+export function mentorSystemFor(examCode: string | null | undefined): string {
+  return examCode === "MPSC" ? MPSC_MENTOR_SYSTEM : UPSC_MENTOR_SYSTEM;
+}
+
 // â”€â”€ Current affairs processing prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const AFFAIRS_PROCESSOR_SYSTEM = `You are a UPSC Current Affairs Analyst. Given a news article headline and summary, extract structured UPSC-relevant intelligence.
 
@@ -102,12 +126,13 @@ Priority: high = direct UPSC syllabus + recent development; normal = syllabus-ad
 export async function* streamChat(
   messages: { role: "user" | "assistant"; content: string }[],
   modelId: ModelId = DEFAULT_MODEL,
+  systemPrompt: string = UPSC_MENTOR_SYSTEM,
 ): AsyncGenerator<string> {
   const model = MODELS[modelId];
   if (model.provider === "google") {
-    yield* streamGemini(messages, model.apiId);
+    yield* streamGemini(messages, model.apiId, systemPrompt);
   } else {
-    yield* streamGroq(messages, model.apiId);
+    yield* streamGroq(messages, model.apiId, systemPrompt);
   }
 }
 
@@ -115,10 +140,11 @@ export async function* streamChat(
 async function* streamGemini(
   messages: { role: "user" | "assistant"; content: string }[],
   apiId: string,
+  systemPrompt: string,
 ): AsyncGenerator<string> {
   const geminiModel = getGenAI().getGenerativeModel({
     model: apiId,
-    systemInstruction: UPSC_MENTOR_SYSTEM,
+    systemInstruction: systemPrompt,
   });
 
   // Convert to Gemini history format (all but last message)
@@ -141,13 +167,14 @@ async function* streamGemini(
 async function* streamGroq(
   messages: { role: "user" | "assistant"; content: string }[],
   apiId: string,
+  systemPrompt: string,
 ): AsyncGenerator<string> {
   const stream = await getGroq().chat.completions.create({
     model: apiId,
     max_tokens: 4096,
     stream: true,
     messages: [
-      { role: "system", content: UPSC_MENTOR_SYSTEM },
+      { role: "system", content: systemPrompt },
       ...messages.map((m) => ({ role: m.role, content: m.content })),
     ],
   });
@@ -167,23 +194,51 @@ export async function processAffair(
   prelims: string; mains: string; interview: string;
   gsMapping: string[]; tags: string[]; priority: "high" | "normal" | "low";
 }> {
-  const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
-  const result = await model.generateContent({
-    systemInstruction: AFFAIRS_PROCESSOR_SYSTEM,
-    contents: [{ role: "user", parts: [{ text: `Headline: ${headline}\n\nSummary: ${summary}` }] }],
-  });
+  const userMsg = `Headline: ${headline}\n\nSummary: ${summary}`;
+  const fallback = {
+    whyInNews: summary, background: "", keyFacts: "", prelims: "",
+    mains: "", interview: "", gsMapping: [] as string[], tags: [] as string[],
+    priority: "normal" as const,
+  };
 
-  const text = result.response.text();
-  // Strip markdown code fences if present
-  const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  try {
-    return JSON.parse(clean);
-  } catch {
-    return {
-      whyInNews: summary, background: "", keyFacts: "", prelims: "",
-      mains: "", interview: "", gsMapping: [], tags: [], priority: "normal",
-    };
+  const parse = (raw: string) => {
+    const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    try { return { ...fallback, ...JSON.parse(clean) }; } catch { return fallback; }
+  };
+
+  // Primary: Gemini (large context, best quality).
+  if (process.env.GOOGLE_API_KEY) {
+    try {
+      const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent({
+        systemInstruction: AFFAIRS_PROCESSOR_SYSTEM,
+        contents: [{ role: "user", parts: [{ text: userMsg }] }],
+      });
+      return parse(result.response.text());
+    } catch {
+      // fall through to Groq (Gemini daily/RPM quota or transient error)
+    }
   }
+
+  // Fallback: Groq (keeps the pipeline alive when Gemini is throttled).
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const res = await getGroq().chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 1024,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: AFFAIRS_PROCESSOR_SYSTEM },
+          { role: "user", content: userMsg },
+        ],
+      });
+      return parse(res.choices[0]?.message?.content ?? "{}");
+    } catch {
+      return fallback;
+    }
+  }
+
+  return fallback;
 }
 
 // â”€â”€ NCERT / Book batch processor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FileText, Newspaper, RotateCcw, Sparkles, Library, Target,
@@ -19,6 +19,13 @@ import {
 /* ── HERO STRIP ──────────────────────────────────────── */
 export function Hero() {
   const tPrelims = daysUntil(exam.prelims.date);
+  const [examTag, setExamTag] = useState("UPSC CSE");
+  useEffect(() => {
+    fetch("/api/exams/active")
+      .then((r) => r.json())
+      .then((d: { shortName?: string }) => { if (d.shortName) setExamTag(d.shortName); })
+      .catch(() => {});
+  }, []);
   return (
     <div className="relative overflow-hidden rounded-2xl border border-line bg-surface/60 p-7 backdrop-blur-xl">
       <div
@@ -47,7 +54,7 @@ export function Hero() {
         <div className="flex flex-wrap items-center gap-2">
           <Tag intent="green">On Track</Tag>
           <Tag intent="amber">Prelims · T-{tPrelims}</Tag>
-          <Tag intent="muted">CSE 2027</Tag>
+          <Tag intent="muted">{examTag}</Tag>
         </div>
       </div>
     </div>

@@ -11,6 +11,8 @@ interface RawItem {
   link: string;
   source: string;
   category: FeedCategory;
+  examScope: string[];
+  lang: "en" | "mr";
   publishedAt: Date;
 }
 
@@ -74,6 +76,8 @@ async function fetchFeed(feed: Feed): Promise<RawItem[]> {
         link,
         source: gnewsSource || publisher || feed.name,
         category: feed.category,
+        examScope: feed.examScope,
+        lang: feed.lang,
         publishedAt: isNaN(pub.getTime()) ? new Date() : pub,
       };
     }).filter((x: RawItem | null): x is RawItem => x !== null);
@@ -185,6 +189,8 @@ export async function POST() {
           source: item.source,
           sourceUrl: item.link,
           category: item.category,
+          examScope: item.examScope,
+          lang: item.lang,
           publishedAt: item.publishedAt,
         },
       });
