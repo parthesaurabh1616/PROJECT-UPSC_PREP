@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Radio, Loader2, RefreshCw, ExternalLink, X, Globe2, Flag, Landmark, Sparkles, Target } from "lucide-react";
+import { Radio, Loader2, RefreshCw, ExternalLink, X, Globe2, Flag, Landmark, Sparkles, Target, Layers, Check } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { GlobeCanvas, type Article } from "@/components/GlobeCanvas";
 import { cn } from "@/lib/utils";
@@ -47,7 +47,23 @@ export default function IntelligencePage() {
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [briefing, setBriefing] = useState<Briefing | null>(null);
   const [briefLoading, setBriefLoading] = useState(true);
+  const [cardMsg, setCardMsg] = useState("");
+  const [carding, setCarding] = useState<string | null>(null); // "bulk" | eventId | null
   const init = useRef(false);
+
+  const addToRevision = useCallback(async (opts: { eventId?: string; top?: number }, key: string) => {
+    if (carding) return;
+    setCarding(key); setCardMsg("");
+    try {
+      const r = await fetch("/api/intel/flashcards", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts),
+      });
+      const d = await r.json() as { created?: number; error?: string };
+      setCardMsg(d.error ? d.error : `Added ${d.created ?? 0} cards to Revision`);
+    } catch { setCardMsg("Failed to add cards"); }
+    setCarding(null);
+    setTimeout(() => setCardMsg(""), 4000);
+  }, [carding]);
 
   const loadBriefing = useCallback(async (force = false) => {
     setBriefLoading(true);
@@ -103,11 +119,19 @@ export default function IntelligencePage() {
             {lastSync && <span> · synced {lastSync.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>}
           </p>
         </div>
-        <button onClick={() => { void sync(); }} disabled={syncing}
-          className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-[12px] text-accent transition-colors hover:bg-accent/20 disabled:opacity-50">
-          {syncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-          {syncing ? "Syncing…" : "Sync now"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {cardMsg && <span className="flex items-center gap-1 text-[11.5px] text-success"><Check size={12} />{cardMsg}</span>}
+          <button onClick={() => { void addToRevision({ top: 5 }, "bulk"); }} disabled={carding !== null}
+            className="flex items-center gap-1.5 rounded-lg border border-accent-2/40 bg-accent-2/10 px-3 py-1.5 text-[12px] text-accent-2 transition-colors hover:bg-accent-2/20 disabled:opacity-50">
+            {carding === "bulk" ? <Loader2 size={13} className="animate-spin" /> : <Layers size={13} />}
+            {carding === "bulk" ? "Generating…" : "Top 5 → Revision"}
+          </button>
+          <button onClick={() => { void sync(); }} disabled={syncing}
+            className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-[12px] text-accent transition-colors hover:bg-accent/20 disabled:opacity-50">
+            {syncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+            {syncing ? "Syncing…" : "Sync now"}
+          </button>
+        </div>
       </div>
 
       {/* Layer toggles */}
@@ -220,6 +244,12 @@ export default function IntelligencePage() {
                   </a>
                 )}
               </div>
+              <button onClick={() => { void addToRevision({ eventId: selected.id }, selected.id); }}
+                disabled={carding !== null}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-accent-2/40 bg-accent-2/10 py-2 text-[12px] font-medium text-accent-2 transition-colors hover:bg-accent-2/20 disabled:opacity-50">
+                {carding === selected.id ? <Loader2 size={13} className="animate-spin" /> : <Layers size={13} />}
+                {carding === selected.id ? "Generating cards…" : "Add to Revision"}
+              </button>
             </Card>
           )}
         </div>

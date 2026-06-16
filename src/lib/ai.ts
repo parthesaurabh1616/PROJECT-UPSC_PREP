@@ -328,3 +328,68 @@ export async function generateBriefing(
   }
   return { summary: "Briefing unavailable — no AI provider configured.", items: [], focus: [] };
 }
+
+// ── Flashcard generation (news event → spaced-repetition cards) ─
+export interface FlashCard { front: string; back: string; }
+
+const FLASHCARD_SYSTEM = (exam: string) => `You are a ${exam} flashcard author. Given a current-affairs event, produce 2-3 high-yield active-recall flashcards an aspirant should memorise.
+
+Rules:
+- "front" = a precise recall question (a fact, date, body, Act, scheme, constitutional provision, or concept). Prelims-grade.
+- "back" = the concise, exam-correct answer (1-2 lines).
+- Prefer facts that are durable and frequently tested, not ephemeral details.
+${exam === "MPSC" ? "- Include a Maharashtra angle where relevant; Marathi terms in parentheses are welcome." : ""}
+
+Respond ONLY with valid JSON:
+{ "cards": [ { "front": "...", "back": "..." } ] }
+No preamble, JSON only.`;
+
+export async function generateFlashcards(
+  event: { headline: string; whyInNews?: string | null; keyFacts?: string | null; prelims?: string | null },
+  examCode: string,
+): Promise<FlashCard[]> {
+  const exam = examCode === "MPSC" ? "MPSC" : "UPSC";
+  const userMsg = [
+    `Headline: ${event.headline}`,
+    event.whyInNews ? `Why in news: ${event.whyInNews}` : "",
+    event.keyFacts ? `Key facts: ${event.keyFacts}` : "",
+    event.prelims ? `Prelims angle: ${event.prelims}` : "",
+  ].filter(Boolean).join("\n");
+  const system = FLASHCARD_SYSTEM(exam);
+
+  const parse = (raw: string): FlashCard[] => {
+    const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    try {
+      const j = JSON.parse(clean);
+      const cards = Array.isArray(j.cards) ? j.cards : [];
+      return cards
+        .filter((c: unknown): c is FlashCard => !!c && typeof (c as FlashCard).front === "string" && typeof (c as FlashCard).back === "string")
+        .slice(0, 3)
+        .map((c: FlashCard) => ({ front: c.front.trim(), back: c.back.trim() }));
+    } catch { return []; }
+  };
+
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const res = await getGroq().chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 800,
+        response_format: { type: "json_object" },
+        messages: [{ role: "system", content: system }, { role: "user", content: userMsg }],
+      });
+      const cards = parse(res.choices[0]?.message?.content ?? "{}");
+      if (cards.length) return cards;
+    } catch { /* fall through */ }
+  }
+  if (process.env.GOOGLE_API_KEY) {
+    try {
+      const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent({
+        systemInstruction: system,
+        contents: [{ role: "user", parts: [{ text: userMsg }] }],
+      });
+      return parse(result.response.text());
+    } catch { /* fall through */ }
+  }
+  return [];
+}
