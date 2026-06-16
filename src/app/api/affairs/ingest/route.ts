@@ -102,9 +102,26 @@ export async function POST() {
     );
   }
 
+  // 0. DB reachability check — gives a clear message instead of a silent 500
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch {
+    return Response.json(
+      { error: "Database is not reachable. Start Docker (run start.bat or `npm run infra:up`)." },
+      { status: 503 },
+    );
+  }
+
   // 1. Fetch all feeds in parallel
   const feedResults = await Promise.allSettled(FEEDS.map(fetchFeed));
   const allItems: RawItem[] = feedResults.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+
+  if (allItems.length === 0) {
+    return Response.json(
+      { error: "No articles fetched — check your internet connection.", ingested: 0 },
+      { status: 502 },
+    );
+  }
 
   // 2. Dedupe within this batch by headline
   const seen = new Set<string>();

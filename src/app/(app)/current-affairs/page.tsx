@@ -34,9 +34,11 @@ export default function CurrentAffairsPage() {
     try {
       const r = await fetch("/api/affairs", { cache: "no-store" });
       const d: unknown = await r.json();
-      setArticles(Array.isArray(d) ? (d as Article[]) : []);
-    } catch { /* keep stale */ }
-    setLoading(false);
+      const list = Array.isArray(d) ? (d as Article[]) : [];
+      setArticles(list);
+      setLoading(false);
+      return list;
+    } catch { setLoading(false); return [] as Article[]; }
   }, []);
 
   const sync = useCallback(async (silent = false) => {
@@ -56,16 +58,21 @@ export default function CurrentAffairsPage() {
     if (!silent) setTimeout(() => setSyncMsg(""), 5000);
   }, [syncing, load]);
 
-  // Initial load
-  useEffect(() => { void load(); }, [load]);
-
-  // Live auto-refresh every 5 minutes (silent background sync + reload)
+  // Bootstrap: load once, then auto-sync if empty or stale (>3h old).
+  // This means opening the page after days away refreshes news automatically.
   useEffect(() => {
     if (initialised.current) return;
     initialised.current = true;
+    (async () => {
+      const list = await load();
+      const newest = list[0]?.publishedAt ? new Date(list[0].publishedAt).getTime() : 0;
+      const stale = list.length === 0 || (Date.now() - newest) > 3 * 60 * 60 * 1000;
+      if (stale) void sync(true);
+    })();
+    // Live auto-refresh every 5 minutes (silent background sync + reload)
     const id = setInterval(() => { void sync(true); }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [sync]);
+  }, [load, sync]);
 
   const toggleSave = (id: string) =>
     setSaved((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });

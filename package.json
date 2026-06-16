@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "go": "powershell -NoProfile -ExecutionPolicy Bypass -File ./start.ps1",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
