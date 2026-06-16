@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { resolveCoords } from "@/lib/geo/gazetteer";
 
 export interface Article {
   id: string;
@@ -24,69 +25,10 @@ export interface Article {
   layer?: string;           // global | india | maharashtra
 }
 
-/* ── Geographic coordinate lookup ──────────────────────────── */
-const KEYWORD_COORDS: [string, number, number][] = [
-  ["india", 20.59, 78.96],
-  ["delhi", 28.61, 77.21],
-  ["mumbai", 19.08, 72.88],
-  ["kolkata", 22.57, 88.36],
-  ["chennai", 13.08, 80.27],
-  ["china", 35.86, 104.19],
-  ["beijing", 39.91, 116.39],
-  ["usa", 37.09, -95.71],
-  ["america", 37.09, -95.71],
-  ["washington", 38.90, -77.04],
-  ["russia", 61.52, 105.32],
-  ["ukraine", 48.38, 31.17],
-  ["europe", 54.52, 15.26],
-  ["uk", 55.38, -3.44],
-  ["france", 46.23, 2.21],
-  ["germany", 51.17, 10.45],
-  ["pakistan", 30.38, 69.35],
-  ["bangladesh", 23.69, 90.36],
-  ["sri lanka", 7.87, 80.77],
-  ["nepal", 28.39, 84.12],
-  ["myanmar", 19.16, 96.08],
-  ["iran", 32.43, 53.69],
-  ["israel", 31.05, 34.85],
-  ["saudi", 23.89, 45.08],
-  ["middle east", 29.30, 42.55],
-  ["africa", 8.78, 34.51],
-  ["kenya", -1.29, 36.82],
-  ["japan", 36.20, 138.25],
-  ["korea", 35.91, 127.77],
-  ["asean", 1.35, 103.82],
-  ["ocean", -30, 150],
-  ["arctic", 75, 90],
-  ["atlantic", 0, -30],
-  ["pacific", 0, -150],
-  ["un ", 40.71, -74.01],
-  ["nato", 50.11, 8.68],
-  ["brics", 20.59, 78.96],
-  ["g20", 20.59, 78.96],
-  ["wto", 46.23, 6.14],
-  ["imf", 38.90, -77.04],
-];
-
-const GS_COORDS: Record<string, [number, number]> = {
-  "GS-I":   [20.59, 78.96],
-  "GS-II":  [28.61, 77.21],
-  "GS-III": [19.08, 72.88],
-  "GS-IV":  [22.57, 88.36],
-};
-
+/* ── Geographic coordinate lookup (DB-backed gazetteer) ──────── */
 function getCoords(article: Article, seed: number): [number, number] {
-  const text = (article.headline + " " + article.tags.join(" ") + " " + (article.source ?? "")).toLowerCase();
-  for (const [kw, lat, lng] of KEYWORD_COORDS) {
-    if (text.includes(kw)) return [lat, lng + (seed % 3) * 1.5];
-  }
-  for (const gs of article.gsMapping) {
-    if (GS_COORDS[gs]) {
-      const c = GS_COORDS[gs];
-      return [c[0] + (seed % 5) * 1.2, c[1] + (seed % 7) * 1.2];
-    }
-  }
-  return [20.59 + (seed % 8) * 1.5, 78.96 + (seed % 6) * 1.5];
+  const text = `${article.headline} ${article.tags.join(" ")} ${article.source ?? ""}`;
+  return resolveCoords(text, seed, article.layer ?? undefined);
 }
 
 /* ── 3-D projection (orthographic) ─────────────────────────── */

@@ -259,3 +259,72 @@ export async function processDocument(
   const result = await model.generateContent(prompts[task]);
   return result.response.text();
 }
+
+// ── Daily Intelligence Briefing ───────────────────────────────
+export interface BriefingItem { headline: string; why: string; gs: string[]; }
+export interface Briefing { summary: string; items: BriefingItem[]; focus: string[]; }
+
+const BRIEFING_SYSTEM = (exam: string) => `You are the lead intelligence analyst for ${exam} preparation. Given today's top news events (already scored for importance), write a crisp daily briefing for an aspirant.
+
+Respond ONLY with valid JSON in exactly this shape:
+{
+  "summary": "3-4 sentence overview of what today's news means for the ${exam} aspirant — the big picture, connected.",
+  "items": [
+    { "headline": "<short rephrased headline>", "why": "1 sentence — why THIS matters for ${exam} (syllabus + angle)", "gs": ["GS-II"] }
+  ],
+  "focus": ["3-5 syllabus topics or themes to revise today based on this news"]
+}
+
+CRITICAL: "items" MUST contain one entry for EACH of the events I give you (aim for 6-8 items, never just 1). Cover the breadth of the day's news, not a single story.
+Be specific and exam-focused. ${exam === "MPSC" ? "Use a Maharashtra lens where relevant." : ""} No preamble, JSON only.`;
+
+/** Generate a daily briefing from the top scored events. Groq-first (fast/cheap), Gemini fallback. */
+export async function generateBriefing(
+  events: { headline: string; whyInNews?: string | null; gsMapping: string[] }[],
+  examCode: string,
+): Promise<Briefing> {
+  const exam = examCode === "MPSC" ? "MPSC" : "UPSC";
+  const list = events.slice(0, 10).map((e, i) =>
+    `${i + 1}. ${e.headline}${e.whyInNews ? ` — ${e.whyInNews}` : ""} [${e.gsMapping.join(", ")}]`,
+  ).join("\n");
+  const userMsg = `Today's top ${Math.min(10, events.length)} events:\n${list}`;
+  const system = BRIEFING_SYSTEM(exam);
+
+  const parse = (raw: string): Briefing => {
+    const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    try {
+      const j = JSON.parse(clean);
+      return {
+        summary: String(j.summary ?? ""),
+        items: Array.isArray(j.items) ? j.items.slice(0, 10) : [],
+        focus: Array.isArray(j.focus) ? j.focus.slice(0, 6) : [],
+      };
+    } catch {
+      return { summary: "", items: [], focus: [] };
+    }
+  };
+
+  // Groq first (fast, no daily quota cap).
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const res = await getGroq().chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 1400,
+        response_format: { type: "json_object" },
+        messages: [{ role: "system", content: system }, { role: "user", content: userMsg }],
+      });
+      return parse(res.choices[0]?.message?.content ?? "{}");
+    } catch { /* fall through */ }
+  }
+  if (process.env.GOOGLE_API_KEY) {
+    try {
+      const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent({
+        systemInstruction: system,
+        contents: [{ role: "user", parts: [{ text: userMsg }] }],
+      });
+      return parse(result.response.text());
+    } catch { /* fall through */ }
+  }
+  return { summary: "Briefing unavailable — no AI provider configured.", items: [], focus: [] };
+}

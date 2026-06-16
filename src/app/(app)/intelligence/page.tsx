@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Radio, Loader2, RefreshCw, ExternalLink, X, Globe2, Flag, Landmark } from "lucide-react";
+import { Radio, Loader2, RefreshCw, ExternalLink, X, Globe2, Flag, Landmark, Sparkles, Target } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { GlobeCanvas, type Article } from "@/components/GlobeCanvas";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,13 @@ interface IntelEvent extends Article {
   importanceScore: number;
   tier: "critical" | "high" | "normal" | "low";
   layer: "global" | "india" | "maharashtra";
+}
+
+interface Briefing {
+  summary: string;
+  items: { headline: string; why: string; gs: string[] }[];
+  focus: string[];
+  examCode?: string;
 }
 
 const LAYERS: { key: LayerKey; label: string; icon: React.ElementType }[] = [
@@ -38,7 +45,18 @@ export default function IntelligencePage() {
   const [syncing, setSyncing] = useState(false);
   const [selected, setSelected] = useState<IntelEvent | null>(null);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [briefing, setBriefing] = useState<Briefing | null>(null);
+  const [briefLoading, setBriefLoading] = useState(true);
   const init = useRef(false);
+
+  const loadBriefing = useCallback(async (force = false) => {
+    setBriefLoading(true);
+    try {
+      const r = await fetch(`/api/intel/briefing${force ? "?force=1" : ""}`, { cache: "no-store" });
+      setBriefing(await r.json() as Briefing);
+    } catch { /* */ }
+    setBriefLoading(false);
+  }, []);
 
   const load = useCallback(async (lyr: LayerKey) => {
     try {
@@ -63,9 +81,10 @@ export default function IntelligencePage() {
   useEffect(() => {
     if (init.current) return;
     init.current = true;
+    void loadBriefing();
     const id = setInterval(() => { void load("all"); }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, loadBriefing]);
 
   const critical = events.filter((e) => e.tier === "critical").length;
   const avgScore = events.length ? Math.round(events.reduce((a, e) => a + e.importanceScore, 0) / events.length) : 0;
@@ -106,6 +125,52 @@ export default function IntelligencePage() {
           );
         })}
       </div>
+
+      {/* AI Daily Briefing */}
+      <Card className="animate-fade-up p-5" style={{ animationDelay: "50ms" }}>
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-ink-2">
+            <Sparkles size={14} className="text-accent-2" /> Daily Briefing
+            <span className="font-mono text-[9px] tracking-widest text-ink-3">AI · {briefing?.examCode ?? ""}</span>
+          </p>
+          <button onClick={() => { void loadBriefing(true); }} disabled={briefLoading}
+            className="flex items-center gap-1 text-[11px] text-ink-3 hover:text-accent disabled:opacity-50">
+            {briefLoading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} regenerate
+          </button>
+        </div>
+
+        {briefLoading && !briefing && (
+          <p className="mt-3 flex items-center gap-2 text-[12.5px] text-ink-3"><Loader2 size={13} className="animate-spin" /> Generating today&apos;s briefing…</p>
+        )}
+
+        {briefing?.summary && (
+          <p className="mt-3 text-[13.5px] leading-relaxed text-ink-2">{briefing.summary}</p>
+        )}
+
+        {briefing && briefing.items.length > 0 && (
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {briefing.items.slice(0, 6).map((it, i) => (
+              <div key={i} className="flex gap-2.5 rounded-lg border border-line-subtle bg-surface-2/40 p-3">
+                <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md bg-accent/15 font-mono text-[10px] font-bold text-accent">{i + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-medium leading-snug text-ink">{it.headline}</p>
+                  <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-3">{it.why}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">{it.gs.map((g) => <Chip key={g} tone="accent">{g}</Chip>)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {briefing && briefing.focus.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-line-subtle pt-3">
+            <span className="flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-widest text-ink-3"><Target size={11} /> Revise today:</span>
+            {briefing.focus.map((f, i) => (
+              <span key={i} className="rounded-full bg-accent-2/12 px-2 py-0.5 text-[11px] text-accent-2">{f}</span>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* Globe + Ranked Intel Feed */}
       <div className="grid animate-fade-up grid-cols-[460px_1fr] gap-5" style={{ animationDelay: "60ms" }}>
