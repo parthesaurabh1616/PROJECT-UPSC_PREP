@@ -13,6 +13,7 @@ import { useTheme } from "@/lib/theme";
 import { StatusDot } from "@/components/ui";
 import { user } from "@/lib/data";
 import { MiniGlobe } from "@/components/MiniGlobe";
+import { ExamSwitcher } from "@/components/ExamSwitcher";
 
 interface NavItem {
   label: string;
@@ -159,6 +160,9 @@ export function Shell({ children }: { children: ReactNode }) {
             </p>
           </div>
         </Link>
+
+        {/* Exam switcher — UPSC / MPSC / future PCS */}
+        <ExamSwitcher />
 
         <nav className="flex-1">
           {NAV.map((group) => (

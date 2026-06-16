@@ -7,6 +7,93 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ══════════════════════════════════════════════════════════════
+//  CIVIL SERVICES CORE ENGINE — multi-exam configuration layer
+//  Exam (UPSC | MPSC | future PCS) is data, not code. Every exam
+//  runs on the same engine; differences live in config + content.
+// ══════════════════════════════════════════════════════════════
+
+// ── Exam: the configurable exam definition ────────────────────
+model Exam {
+  id          String   @id @default(cuid())
+  code        String   @unique          // "UPSC" | "MPSC" | future "MPSC-CDPO" etc.
+  name        String                     // "UPSC Civil Services Examination"
+  shortName   String                     // "UPSC CSE"
+  authority   String                     // "Union Public Service Commission"
+  languages   String[] @default(["en"]) // ["en"] | ["en","mr"]
+  accentColor String   @default("accent")// theme hook
+  config      Json     @default("{}")    // freeform: cutoffs, negative marking, etc.
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stages        ExamStage[]
+  syllabusNodes SyllabusNode[]
+  profiles      UserExamProfile[]
+
+  @@map("exams")
+}
+
+// ── ExamStage: Prelims / Mains / Interview — JSON paper structure
+model ExamStage {
+  id        String   @id @default(cuid())
+  examId    String
+  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  type      String                       // "prelims" | "mains" | "interview"
+  name      String                       // "Preliminary Examination"
+  totalMarks Int     @default(0)
+  // papers: [{ code, name, marks, durationMin, qualifying, type:"objective|descriptive" }]
+  papers    Json     @default("[]")
+  sortOrder Int      @default(0)
+
+  @@unique([examId, type])
+  @@map("exam_stages")
+}
+
+// ── SyllabusNode: the SPINE. Everything links here. ───────────
+model SyllabusNode {
+  id         String   @id @default(cuid())
+  examId     String
+  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     SyllabusNode?  @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children   SyllabusNode[] @relation("NodeChildren")
+  code       String                       // "GS2.POLITY.BASIC_STRUCTURE"
+  title      String
+  titleMr    String?                      // Marathi variant (MPSC)
+  stage      String?                      // "prelims" | "mains" — which stage it belongs to
+  paperCode  String?                      // "GS-II", "ESSAY", "OPTIONAL"
+  weight     Int      @default(0)         // historical exam weight 0-100
+  depth      Int      @default(0)         // tree depth for fast rendering
+  path       String   @default("")        // materialized path "root/polity/basic-structure"
+  sortOrder  Int      @default(0)
+
+  @@unique([examId, code])
+  @@index([examId, parentId])
+  @@index([examId, paperCode])
+  @@map("syllabus_nodes")
+}
+
+// ── UserExamProfile: a user's prep against a specific exam ─────
+model UserExamProfile {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examId          String
+  exam            Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  isPrimary       Boolean  @default(false)
+  optionalSubject String?
+  targetYear      Int?
+  language        String   @default("en") // preferred UI/AI language for this exam
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, examId])
+  @@index([userId, isPrimary])
+  @@map("user_exam_profiles")
+}
+
 // ── User ──────────────────────────────────────────────────────
 model User {
   id          String   @id @default(cuid())
@@ -21,6 +108,7 @@ model User {
   studySessions StudySession[]
   tasks         Task[]
   files         LibraryFile[]
+  examProfiles  UserExamProfile[]
 
   @@map("users")
 }
