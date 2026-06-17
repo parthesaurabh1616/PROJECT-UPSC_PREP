@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BookOpen, Loader2, ChevronLeft, FileText, BookMarked, X, GraduationCap } from "lucide-react";
+import { BookOpen, Loader2, ChevronLeft, FileText, BookMarked, X, GraduationCap, Sparkles, Lightbulb, ListChecks, Check } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -50,22 +50,9 @@ export default function NcertPage() {
 
   const activeClass = tree.find((c) => c.klass === klass);
 
-  // ── Reader overlay ──────────────────────────────────────────
+  // ── Reader overlay (PDF + AI study panel) ──────────────────
   if (reader) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-bg">
-        <div className="flex items-center gap-3 border-b border-line px-5 py-3">
-          <button onClick={() => setReader(null)} className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12.5px] text-ink-2 hover:border-accent/40 hover:text-ink">
-            <ChevronLeft size={14} /> Back
-          </button>
-          <div className="min-w-0">
-            <p className="truncate font-display text-[14px] font-semibold text-ink">{reader.chapter.title}</p>
-            <p className="truncate text-[11px] text-ink-3">{reader.bookTitle}</p>
-          </div>
-        </div>
-        <iframe src={`/api/ncert/pdf?id=${reader.chapter.id}`} className="flex-1 w-full" title={reader.chapter.title} />
-      </div>
-    );
+    return <Reader chapter={reader.chapter} bookTitle={reader.bookTitle} onClose={() => setReader(null)} />;
   }
 
   return (
@@ -133,6 +120,7 @@ export default function NcertPage() {
         </div>
       )}
 
+      {/* (Reader is rendered above as a full-screen overlay) */}
       {/* Book detail drawer */}
       {(book || bookLoading) && (
         <div className="fixed inset-0 z-40 flex justify-end bg-black/50 backdrop-blur-sm" onClick={() => setBook(null)}>
@@ -170,6 +158,134 @@ export default function NcertPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Reader: PDF + AI study panel ───────────────────────────── */
+interface Mcq { q: string; options: string[]; answer: string; explanation: string; }
+interface Analysis { title: string; summary: string | null; concepts: string[]; facts: string[]; mcqs: Mcq[]; processed: boolean; }
+
+function Reader({ chapter, bookTitle, onClose }: { chapter: Chapter; bookTitle: string; onClose: () => void }) {
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [running, setRunning]   = useState(false);
+  const [tab, setTab]           = useState<"summary" | "concepts" | "facts" | "mcqs">("summary");
+  const [err, setErr]           = useState("");
+  const [reveal, setReveal]     = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    fetch(`/api/ncert/analyze?id=${chapter.id}`).then((r) => r.json())
+      .then((d: Analysis) => setAnalysis(d)).catch(() => {}).finally(() => setLoading(false));
+  }, [chapter.id]);
+
+  const analyze = async () => {
+    setRunning(true); setErr("");
+    try {
+      const r = await fetch("/api/ncert/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chapterId: chapter.id }) });
+      const d = await r.json() as Analysis & { error?: string };
+      if (d.error) setErr(d.error); else setAnalysis(d);
+    } catch { setErr("Analysis failed"); }
+    setRunning(false);
+  };
+
+  const TABS = [
+    { k: "summary" as const, label: "Summary", icon: Sparkles },
+    { k: "concepts" as const, label: "Concepts", icon: Lightbulb },
+    { k: "facts" as const, label: "Facts", icon: Check },
+    { k: "mcqs" as const, label: "MCQs", icon: ListChecks },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-bg">
+      <div className="flex items-center gap-3 border-b border-line px-5 py-3">
+        <button onClick={onClose} className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12.5px] text-ink-2 hover:border-accent/40 hover:text-ink">
+          <ChevronLeft size={14} /> Back
+        </button>
+        <div className="min-w-0">
+          <p className="truncate font-display text-[14px] font-semibold text-ink">{analysis?.title || chapter.title}</p>
+          <p className="truncate text-[11px] text-ink-3">{bookTitle}</p>
+        </div>
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-[1fr_400px]">
+        {/* PDF */}
+        <iframe src={`/api/ncert/pdf?id=${chapter.id}`} className="h-full w-full border-r border-line" title={chapter.title} />
+
+        {/* AI study panel */}
+        <div className="flex min-h-0 flex-col bg-surface">
+          <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-2">
+              <Sparkles size={13} /> AI Study Tools
+            </p>
+            {(analysis?.processed) && (
+              <button onClick={() => { void analyze(); }} disabled={running} className="text-[10.5px] text-ink-3 hover:text-accent disabled:opacity-50">
+                {running ? "…" : "regenerate"}
+              </button>
+            )}
+          </div>
+
+          {/* Not yet analysed */}
+          {!loading && !analysis?.processed && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+              <Sparkles size={28} className="text-accent-2" />
+              <p className="text-[13px] font-semibold text-ink">Analyse this chapter</p>
+              <p className="max-w-[260px] text-[12px] leading-relaxed text-ink-3">Gemini reads the PDF and generates a summary, key concepts, high-yield facts and Prelims MCQs.</p>
+              <button onClick={() => { void analyze(); }} disabled={running}
+                className="mt-1 flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-accent to-accent-2 px-4 py-2 text-[12.5px] font-medium text-white disabled:opacity-60">
+                {running ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {running ? "Reading the chapter…" : "Generate study material"}
+              </button>
+              {err && <p className="text-[11px] text-danger">{err}</p>}
+            </div>
+          )}
+          {loading && <div className="flex flex-1 items-center justify-center text-ink-3"><Loader2 size={16} className="animate-spin" /></div>}
+
+          {/* Analysed */}
+          {analysis?.processed && (
+            <>
+              <div className="flex gap-1 border-b border-line px-3 py-2">
+                {TABS.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <button key={t.k} onClick={() => setTab(t.k)}
+                      className={cn("flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] transition-colors",
+                        tab === t.k ? "bg-accent text-white" : "text-ink-3 hover:bg-surface-2 hover:text-ink")}>
+                      <Icon size={11} /> {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                {tab === "summary" && <p className="text-[12.5px] leading-relaxed text-ink-2 whitespace-pre-wrap">{analysis.summary}</p>}
+                {tab === "concepts" && (
+                  <div className="flex flex-wrap gap-1.5">{analysis.concepts.map((c, i) => <span key={i} className="rounded-full bg-accent/12 px-2.5 py-1 text-[11.5px] text-accent">{c}</span>)}</div>
+                )}
+                {tab === "facts" && (
+                  <ul className="space-y-2">{analysis.facts.map((f, i) => <li key={i} className="flex gap-2 text-[12.5px] text-ink-2"><Check size={13} className="mt-0.5 shrink-0 text-success" />{f}</li>)}</ul>
+                )}
+                {tab === "mcqs" && (
+                  <div className="space-y-3">
+                    {analysis.mcqs.map((m, i) => (
+                      <div key={i} className="rounded-lg border border-line-subtle p-3">
+                        <p className="text-[12.5px] font-medium text-ink">Q{i + 1}. {m.q}</p>
+                        <div className="mt-1.5 space-y-1">
+                          {m.options.map((o, j) => (
+                            <p key={j} className={cn("rounded px-2 py-1 text-[11.5px]", reveal.has(i) && o === m.answer ? "bg-success/15 text-success" : "text-ink-2")}>{o}</p>
+                          ))}
+                        </div>
+                        <button onClick={() => setReveal((s) => new Set(s).add(i))} className="mt-1.5 text-[11px] text-accent hover:underline">
+                          {reveal.has(i) ? `Answer: ${m.answer} — ${m.explanation}` : "Reveal answer"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

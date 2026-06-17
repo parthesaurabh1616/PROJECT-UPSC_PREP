@@ -1,5 +1,6 @@
 ﻿import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
+import fs from "fs";
 
 // â”€â”€ Clients (lazy-init so missing keys don't crash module load) â”€
 let _genAI: GoogleGenerativeAI | null = null;
@@ -258,6 +259,62 @@ export async function processDocument(
 
   const result = await model.generateContent(prompts[task]);
   return result.response.text();
+}
+
+// ── NCERT chapter analysis — Gemini reads the PDF directly ────
+export interface ChapterMcq { q: string; options: string[]; answer: string; explanation: string; }
+export interface ChapterAnalysis {
+  title: string;
+  summary: string;
+  concepts: string[];
+  facts: string[];
+  mcqs: ChapterMcq[];
+}
+
+const CHAPTER_SYSTEM = (exam: string) => `You are a ${exam} faculty member analysing an NCERT chapter PDF. Read the chapter and produce structured study material.
+
+Respond ONLY with valid JSON:
+{
+  "title": "the actual chapter title from the PDF (not 'Chapter N')",
+  "summary": "6-10 sentence ${exam}-focused summary of the chapter's core content",
+  "concepts": ["8-12 key concepts/terms a student must understand"],
+  "facts": ["8-12 high-yield, exam-testable facts (dates, names, definitions, data)"],
+  "mcqs": [ { "q": "Prelims-style question", "options": ["A","B","C","D"], "answer": "the correct option text", "explanation": "1 line" } ]
+}
+Generate 5 MCQs. Be precise and exam-relevant. No preamble, JSON only.`;
+
+/** Analyse an NCERT chapter PDF with Gemini (native PDF reading). Gemini-only — Groq can't read PDFs. */
+export async function analyzeChapterPdf(pdfPath: string, examCode: string): Promise<ChapterAnalysis | null> {
+  if (!process.env.GOOGLE_API_KEY) return null;
+  const exam = examCode === "MPSC" ? "MPSC" : "UPSC";
+  try {
+    const buf = fs.readFileSync(pdfPath);
+    // Cap payload (~18MB inline limit); NCERT chapters are well under this.
+    const b64 = buf.toString("base64");
+    const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent({
+      systemInstruction: CHAPTER_SYSTEM(exam),
+      contents: [{
+        role: "user",
+        parts: [
+          { inlineData: { mimeType: "application/pdf", data: b64 } },
+          { text: "Analyse this NCERT chapter and return the JSON study material." },
+        ],
+      }],
+    });
+    const raw = result.response.text().replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const j = JSON.parse(raw);
+    return {
+      title: typeof j.title === "string" && j.title.trim() ? j.title.trim() : "",
+      summary: String(j.summary ?? ""),
+      concepts: Array.isArray(j.concepts) ? j.concepts.slice(0, 14).map(String) : [],
+      facts: Array.isArray(j.facts) ? j.facts.slice(0, 14).map(String) : [],
+      mcqs: Array.isArray(j.mcqs) ? j.mcqs.slice(0, 6).filter((m: unknown): m is ChapterMcq =>
+        !!m && typeof (m as ChapterMcq).q === "string" && Array.isArray((m as ChapterMcq).options)) : [],
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ── Daily Intelligence Briefing ───────────────────────────────

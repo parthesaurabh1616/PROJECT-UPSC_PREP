@@ -173,6 +173,13 @@ model NcertChapter {
   pdfPath   String                        // absolute path on disk (streamed, not copied)
   sizeBytes Int      @default(0)
 
+  // ── AI study tools (Gemini reads the PDF directly; cached) ──
+  aiSummary    String?
+  aiConcepts   String[]                    // key concepts
+  aiFacts      String[]                    // high-yield facts
+  aiMcqs       Json?                       // [{ q, options[], answer, explanation }]
+  aiProcessedAt DateTime?
+
   @@index([bookId, order])
   @@map("ncert_chapters")
 }
