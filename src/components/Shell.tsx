@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network,
+  TrendingUp, Radio, Network, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -32,6 +32,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { label: "Current Affairs", href: "/current-affairs", icon: Newspaper },
       { label: "Live Actions",    href: "/intelligence",    icon: Radio, badge: "LIVE" },
       { label: "Knowledge Hub",   href: "/knowledge",       icon: Network },
+      { label: "NCERT Library",   href: "/ncert",           icon: BookOpen },
       { label: "Revision",        href: "/revision",        icon: RotateCcw },
       { label: "Library",         href: "/library",         icon: Library },
     ],
@@ -45,6 +46,7 @@ const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/current-affairs": { eyebrow: "INTELLIGENCE FEED",  title: "Current Affairs" },
   "/intelligence":    { eyebrow: "COMMAND CENTER",     title: "Live Actions" },
   "/knowledge":       { eyebrow: "KNOWLEDGE GRAPH",    title: "Knowledge Hub" },
+  "/ncert":           { eyebrow: "DIGITAL LIBRARY",    title: "NCERT Library" },
   "/revision":        { eyebrow: "REVISION ENGINE",    title: "Spaced Repetition" },
   "/library":         { eyebrow: "ARCHIVE",            title: "Library" },
 };

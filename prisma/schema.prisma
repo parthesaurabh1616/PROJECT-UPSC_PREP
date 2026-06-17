@@ -139,6 +139,44 @@ model Message {
   @@map("messages")
 }
 
+// ══════════════════════════════════════════════════════════════
+//  NCERT Library — normalized from the raw PDF folder by the scan
+// ══════════════════════════════════════════════════════════════
+model NcertBook {
+  id         String   @id @default(cuid())
+  klass      Int                          // 6..12
+  subject    String                       // History | Geography | Polity | Economics | Science | Social Science
+  title      String                       // "Themes in Indian History - I"
+  code       String?                      // NCERT book code prefix, e.g. "lehs1"
+  coverStyle Int      @default(0)         // deterministic gradient cover index
+  chapterCount Int    @default(0)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  chapters   NcertChapter[]
+
+  @@unique([klass, subject, title])
+  @@index([klass, subject])
+  @@map("ncert_books")
+}
+
+model NcertChapter {
+  id        String   @id @default(cuid())
+  bookId    String
+  book      NcertBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  order     Int                           // sequence within the book
+  code      String?                       // file code e.g. "lehs101"
+  title     String                        // human chapter title (extracted) or "Chapter N"
+  kind      String   @default("chapter")  // chapter | frontmatter | glossary | answers | other
+  chapterNo Int?                          // numeric chapter number when applicable
+  pdfPath   String                        // absolute path on disk (streamed, not copied)
+  sizeBytes Int      @default(0)
+
+  @@index([bookId, order])
+  @@map("ncert_chapters")
+}
+
 // ── Notes (second brain) ──────────────────────────────────────
 model Note {
   id        String   @id @default(cuid())
