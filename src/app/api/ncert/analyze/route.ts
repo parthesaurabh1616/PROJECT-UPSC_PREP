@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getActiveProfile } from "@/lib/exam";
-import { analyzeChapterPdf } from "@/lib/ai";
+import { analyzeChapterPdf, ChapterAnalysisError } from "@/lib/ai";
 import fs from "fs";
 
 export const maxDuration = 60;
@@ -43,9 +43,13 @@ export async function POST(req: NextRequest) {
   const profile = await getActiveProfile().catch(() => null);
   const examCode = profile?.exam.code ?? "UPSC";
 
-  const analysis = await analyzeChapterPdf(ch.pdfPath, examCode);
-  if (!analysis) {
-    return Response.json({ error: "Analysis failed — Gemini unavailable or quota reached. Try again later." }, { status: 503 });
+  let analysis;
+  try {
+    analysis = await analyzeChapterPdf(ch.pdfPath, examCode);
+  } catch (e) {
+    const msg = e instanceof ChapterAnalysisError ? e.message
+      : `Unexpected error: ${e instanceof Error ? e.message.slice(0, 160) : String(e)}`;
+    return Response.json({ error: msg }, { status: 503 });
   }
 
   // Persist; upgrade the title if Gemini found a real one and ours was generic.

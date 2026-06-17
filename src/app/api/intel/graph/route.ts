@@ -98,9 +98,32 @@ export async function GET(req: NextRequest) {
     .slice(0, 15)
     .map((n) => ({ id: n.id, title: n.title, subject: n.subject, updatedAt: n.updatedAt }));
 
+  // ── Connected NCERT CHAPTERS (analysed ones match by title/concepts/facts) ─
+  const chapterRows = await prisma.ncertChapter.findMany({
+    where: { kind: "chapter" },
+    include: { book: true },
+    take: 600,
+  });
+  const ncert = chapterRows
+    .map((c) => {
+      const blob = `${c.title} ${c.aiConcepts.join(" ")} ${c.aiFacts.join(" ")} ${c.book.subject}`;
+      const kwHit = hits(blob, kws);
+      // light subject affinity (e.g. Polity node ↔ Political Science book)
+      const subjAffinity = node.title.toLowerCase().split(" ").some((w) =>
+        w.length >= 4 && c.book.subject.toLowerCase().includes(w)) ? 1 : 0;
+      return { c, relevance: kwHit * 2 + subjAffinity };
+    })
+    .filter((x) => x.relevance > 0)
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, 12)
+    .map(({ c }) => ({
+      id: c.id, title: c.title, book: c.book.title, klass: c.book.klass,
+      subject: c.book.subject, analysed: !!c.aiProcessedAt,
+    }));
+
   return Response.json({
     node: { code: node.code, title: node.title, titleMr: node.titleMr, paperCode: node.paperCode },
-    counts: { news: news.length, cards: cards.length, notes: notes.length },
-    news, cards, notes,
+    counts: { news: news.length, cards: cards.length, notes: notes.length, ncert: ncert.length },
+    news, cards, notes, ncert,
   });
 }

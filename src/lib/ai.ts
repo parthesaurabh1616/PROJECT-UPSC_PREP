@@ -283,13 +283,21 @@ Respond ONLY with valid JSON:
 }
 Generate 5 MCQs. Be precise and exam-relevant. No preamble, JSON only.`;
 
-/** Analyse an NCERT chapter PDF with Gemini (native PDF reading). Gemini-only — Groq can't read PDFs. */
-export async function analyzeChapterPdf(pdfPath: string, examCode: string): Promise<ChapterAnalysis | null> {
-  if (!process.env.GOOGLE_API_KEY) return null;
+export class ChapterAnalysisError extends Error {}
+
+/** Analyse an NCERT chapter PDF with Gemini (native PDF reading). Gemini-only — Groq can't read PDFs.
+ *  Throws ChapterAnalysisError with a human-readable reason so the API can surface it. */
+export async function analyzeChapterPdf(pdfPath: string, examCode: string): Promise<ChapterAnalysis> {
+  if (!process.env.GOOGLE_API_KEY) throw new ChapterAnalysisError("Gemini is not configured (GOOGLE_API_KEY missing). Chapter AI needs Gemini to read the PDF.");
   const exam = examCode === "MPSC" ? "MPSC" : "UPSC";
+
+  const buf = fs.readFileSync(pdfPath);
+  const sizeMb = buf.length / (1024 * 1024);
+  // Gemini inline data hard limit ~20MB request; keep headroom. NCERT chapters are < 10MB.
+  if (sizeMb > 18) throw new ChapterAnalysisError(`This chapter PDF is ${sizeMb.toFixed(0)}MB — too large for inline analysis. (Large combined-book PDFs aren't supported yet.)`);
+
+  let raw: string;
   try {
-    const buf = fs.readFileSync(pdfPath);
-    // Cap payload (~18MB inline limit); NCERT chapters are well under this.
     const b64 = buf.toString("base64");
     const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent({
@@ -302,19 +310,29 @@ export async function analyzeChapterPdf(pdfPath: string, examCode: string): Prom
         ],
       }],
     });
-    const raw = result.response.text().replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const j = JSON.parse(raw);
-    return {
-      title: typeof j.title === "string" && j.title.trim() ? j.title.trim() : "",
-      summary: String(j.summary ?? ""),
-      concepts: Array.isArray(j.concepts) ? j.concepts.slice(0, 14).map(String) : [],
-      facts: Array.isArray(j.facts) ? j.facts.slice(0, 14).map(String) : [],
-      mcqs: Array.isArray(j.mcqs) ? j.mcqs.slice(0, 6).filter((m: unknown): m is ChapterMcq =>
-        !!m && typeof (m as ChapterMcq).q === "string" && Array.isArray((m as ChapterMcq).options)) : [],
-    };
-  } catch {
-    return null;
+    raw = result.response.text();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("429") || /quota/i.test(msg)) {
+      throw new ChapterAnalysisError("Gemini's free-tier quota is exhausted for now. It resets daily (midnight PT) — try again later. (Chapter AI must use Gemini to read PDFs; Groq can't.)");
+    }
+    if (msg.includes("404")) throw new ChapterAnalysisError("Gemini model unavailable for this key.");
+    throw new ChapterAnalysisError(`Gemini error: ${msg.slice(0, 160)}`);
   }
+
+  const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  let j: Record<string, unknown>;
+  try { j = JSON.parse(clean); }
+  catch { throw new ChapterAnalysisError("Gemini returned an unparseable response. Try again."); }
+
+  return {
+    title: typeof j.title === "string" && j.title.trim() ? j.title.trim() : "",
+    summary: String(j.summary ?? ""),
+    concepts: Array.isArray(j.concepts) ? j.concepts.slice(0, 14).map(String) : [],
+    facts: Array.isArray(j.facts) ? j.facts.slice(0, 14).map(String) : [],
+    mcqs: Array.isArray(j.mcqs) ? j.mcqs.slice(0, 6).filter((m: unknown): m is ChapterMcq =>
+      !!m && typeof (m as ChapterMcq).q === "string" && Array.isArray((m as ChapterMcq).options)) : [],
+  };
 }
 
 // ── Daily Intelligence Briefing ───────────────────────────────

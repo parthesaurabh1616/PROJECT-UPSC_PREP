@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Network, Loader2, Newspaper, RotateCcw, FileText, ExternalLink, ChevronRight } from "lucide-react";
+import { Network, Loader2, Newspaper, RotateCcw, FileText, ExternalLink, ChevronRight, BookOpen } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -9,10 +9,11 @@ interface Node { id: string; code: string; title: string; titleMr?: string | nul
 interface Paper { paperCode: string; nodes: Node[]; }
 interface Graph {
   node: { code: string; title: string; titleMr?: string | null; paperCode?: string | null };
-  counts: { news: number; cards: number; notes: number };
+  counts: { news: number; cards: number; notes: number; ncert: number };
   news: { id: string; headline: string; whyInNews: string | null; gsMapping: string[]; source: string | null; sourceUrl: string | null; importanceScore: number; publishedAt: string }[];
   cards: { id: string; front: string; back: string; subject: string | null }[];
   notes: { id: string; title: string; subject: string | null }[];
+  ncert: { id: string; title: string; book: string; klass: number; subject: string; analysed: boolean }[];
 }
 
 export default function KnowledgePage() {
@@ -94,6 +95,7 @@ export default function KnowledgePage() {
                   </div>
                   <div className="flex gap-3 text-center">
                     <Stat n={graph.counts.news} label="News" />
+                    <Stat n={graph.counts.ncert} label="NCERT" />
                     <Stat n={graph.counts.cards} label="Cards" />
                     <Stat n={graph.counts.notes} label="Notes" />
                   </div>
@@ -114,6 +116,19 @@ export default function KnowledgePage() {
                         {e.sourceUrl && <a href={e.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-[10.5px] text-accent hover:underline">{e.source}<ExternalLink size={9} /></a>}
                       </div>
                     </div>
+                  </div>
+                ))}
+              </Section>
+
+              {/* Connected NCERT chapters */}
+              <Section icon={<BookOpen size={14} className="text-emerald-400" />} title="Linked NCERT Chapters" count={graph.ncert.length}>
+                {graph.ncert.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between border-b border-line-subtle py-2.5 last:border-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-[12.5px] font-medium text-ink">{c.title}</p>
+                      <p className="text-[10.5px] text-ink-3">Class {c.klass} · {c.book}</p>
+                    </div>
+                    {c.analysed && <Chip tone="accent">AI ready</Chip>}
                   </div>
                 ))}
               </Section>

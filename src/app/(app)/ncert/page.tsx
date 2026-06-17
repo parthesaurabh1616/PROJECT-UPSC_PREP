@@ -173,6 +173,19 @@ function Reader({ chapter, bookTitle, onClose }: { chapter: Chapter; bookTitle: 
   const [tab, setTab]           = useState<"summary" | "concepts" | "facts" | "mcqs">("summary");
   const [err, setErr]           = useState("");
   const [reveal, setReveal]     = useState<Set<number>>(new Set());
+  const [revMsg, setRevMsg]     = useState("");
+  const [revBusy, setRevBusy]   = useState(false);
+
+  const toRevision = async () => {
+    setRevBusy(true); setRevMsg("");
+    try {
+      const r = await fetch("/api/ncert/to-revision", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chapterId: chapter.id }) });
+      const d = await r.json() as { created?: number; error?: string };
+      setRevMsg(d.error ? d.error : `Added ${d.created} cards to Revision`);
+    } catch { setRevMsg("Failed"); }
+    setRevBusy(false);
+    setTimeout(() => setRevMsg(""), 4000);
+  };
 
   useEffect(() => {
     fetch(`/api/ncert/analyze?id=${chapter.id}`).then((r) => r.json())
@@ -219,9 +232,16 @@ function Reader({ chapter, bookTitle, onClose }: { chapter: Chapter; bookTitle: 
               <Sparkles size={13} /> AI Study Tools
             </p>
             {(analysis?.processed) && (
-              <button onClick={() => { void analyze(); }} disabled={running} className="text-[10.5px] text-ink-3 hover:text-accent disabled:opacity-50">
-                {running ? "…" : "regenerate"}
-              </button>
+              <div className="flex items-center gap-2">
+                {revMsg && <span className="text-[10px] text-success">{revMsg}</span>}
+                <button onClick={() => { void toRevision(); }} disabled={revBusy}
+                  className="flex items-center gap-1 rounded border border-accent-2/40 bg-accent-2/10 px-2 py-0.5 text-[10px] text-accent-2 hover:bg-accent-2/20 disabled:opacity-50">
+                  {revBusy ? <Loader2 size={10} className="animate-spin" /> : <ListChecks size={10} />} → Revision
+                </button>
+                <button onClick={() => { void analyze(); }} disabled={running} className="text-[10.5px] text-ink-3 hover:text-accent disabled:opacity-50">
+                  {running ? "…" : "regenerate"}
+                </button>
+              </div>
             )}
           </div>
 
