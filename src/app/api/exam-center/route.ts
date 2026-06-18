@@ -26,7 +26,7 @@ export async function GET() {
 
   const [
     chapterDone, ncertTotal, attempts, dueCards, totalCards,
-    caRead, caTotal, notesCount, eventAgg, streak,
+    caRead, caTotal, notesCount, eventAgg, streak, mainsAns,
   ] = await Promise.all([
     prisma.chapterProgress.count({ where: { userId: DEMO_USER_ID } }),
     prisma.ncertChapter.count({ where: { kind: "chapter" } }),
@@ -38,7 +38,21 @@ export async function GET() {
     prisma.note.count({ where: { userId: DEMO_USER_ID } }),
     prisma.activityEvent.groupBy({ by: ["type"], where: { userId: DEMO_USER_ID }, _count: { _all: true }, _sum: { value: true }, _max: { createdAt: true } }),
     computeStreak(),
+    prisma.mainsAnswer.findMany({ where: { userId: DEMO_USER_ID, evaluatedAt: { not: null }, score: { not: null } }, select: { paperCode: true, score: true, maxMarks: true, evaluatedAt: true } }),
   ]);
+
+  // ── Real written-paper performance from evaluated answers ──────
+  // Per counted paper: average % on your answers → projected /250.
+  const COUNTED = ["ESSAY", "GS-I", "GS-II", "GS-III", "GS-IV", "OPTIONAL"];
+  const ansBy = new Map<string, { n: number; pct: number }>();
+  for (const a of mainsAns) { const m = ansBy.get(a.paperCode) ?? { n: 0, pct: 0 }; m.n++; m.pct += (a.score! / a.maxMarks); ansBy.set(a.paperCode, m); }
+  const writtenProjection = COUNTED.map((code) => {
+    const m = ansBy.get(code);
+    const max = code === "OPTIONAL" ? 500 : 250;
+    return m ? { paper: code, answers: m.n, avgPct: Math.round((m.pct / m.n) * 100), projected: Math.round((m.pct / m.n) * max), max, measured: true }
+             : { paper: code, answers: 0, avgPct: null, projected: null, max, measured: false };
+  });
+  const lastEval = mainsAns.reduce<Date | null>((acc, a) => (a.evaluatedAt && (!acc || a.evaluatedAt > acc) ? a.evaluatedAt : acc), null);
 
   // Per-type activity rollup (count, sum, last timestamp)
   const ev = new Map(eventAgg.map((e) => [e.type, { count: e._count._all, sum: e._sum.value ?? 0, last: e._max.createdAt }]));
@@ -98,9 +112,15 @@ export async function GET() {
         { streak: streak.streak, active30: streak.active30 },
         { source: "ActivityEvent", method: "consecutive days with ≥1 logged action", updatedAt: iso(streak.lastActive ? new Date(streak.lastActive) : null), activities: "all logged activity" },
       ),
-      // Honestly NOT measured — no answer/test evaluation engine exists yet.
+      // Honestly NOT measured — no test-series engine exists yet.
       tests: { value: { attempted: 0 }, measured: false, note: "No test-series engine yet. Your test scores will appear here once tests are added." },
-      mainsAnswers: { value: { written: 0 }, measured: false, note: "No Mains answer-evaluation yet. Until answers are evaluated, your Mains/Essay/Optional scores cannot be shown — only benchmarks are." },
+      // Real now: evaluated Mains answers → per-paper projection vs the blueprint.
+      mainsAnswers: mainsAns.length > 0
+        ? { measured: true, ...metric(
+            { written: mainsAns.length, projection: writtenProjection },
+            { source: "MainsAnswer (AI-evaluated)", method: "average % across your evaluated answers per paper, projected onto the counted maximum (250, or 500 for Optional)", updatedAt: iso(lastEval), activities: `${mainsAns.length} answers evaluated` },
+          ) }
+        : { value: { written: 0, projection: writtenProjection }, measured: false, note: "No evaluated answers yet. Write answers in the Mains Answer Lab to turn the benchmark into a real, measured gap." },
     },
   });
 }

@@ -237,6 +237,82 @@ export async function processAffair(
   return fallback;
 }
 
+// ── Mains answer evaluation — strict, realistic UPSC examiner ──
+export interface MainsEvaluation {
+  score: number;
+  breakdown: { dimension: string; score: number; max: number; comment: string }[];
+  strengths: string[];
+  improvements: string[];
+  verdict: string;
+}
+
+const MAINS_EVAL_SYSTEM = (exam: string, paper: string, maxMarks: number) => {
+  const isEssay = paper === "ESSAY";
+  const wordHint = maxMarks <= 10 ? "~150 words" : maxMarks <= 15 ? "~250 words" : isEssay ? "~1000-1200 words" : "as appropriate";
+  return `You are a seasoned ${exam} Mains examiner evaluating a ${paper} answer out of ${maxMarks} marks (expected length ${wordHint}). Mark exactly as ${exam} does — strict and realistic, NOT generous. Calibration: a 10-marker scores ~2-3 (poor), 4-5 (average), 5.5-6.5 (good), 7+ (rare, excellent); a 15-marker ~6-8 (average), 8-9.5 (good), 10+ (excellent). Most real answers land at 45-60% of the maximum. Reward directness to the question, structure, substantiation (data, examples, committees, cases, schemes), balance, and analytical depth. Penalise generic content, missing the directive (discuss/examine/critically analyse), padding, and weak structure.
+
+${isEssay
+  ? "For an essay, weigh: relevance to the theme, multi-dimensional coverage, philosophical depth, examples & anecdotes, language & flow, and a coherent conclusion."
+  : "Break the score into these dimensions whose maxima SUM to the total marks: Content & Understanding, Structure (intro-body-conclusion), Substantiation (examples/data/cases), Analysis & Balance, Presentation & Language."}
+
+Respond ONLY with valid JSON:
+{
+  "score": <number, one decimal, 0..${maxMarks}>,
+  "breakdown": [ { "dimension": "string", "score": <number>, "max": <number>, "comment": "one specific line" } ],
+  "strengths": ["2-3 concrete strengths"],
+  "improvements": ["2-4 specific, actionable fixes"],
+  "verdict": "one honest sentence"
+}
+The breakdown maxima must sum to ${maxMarks} and the dimension scores must sum to "score". No preamble, JSON only.`;
+};
+
+export async function evaluateMainsAnswer(input: {
+  questionText: string; paperCode: string; maxMarks: number; answerText: string; examCode: string;
+}): Promise<MainsEvaluation> {
+  const exam = input.examCode === "MPSC" ? "MPSC" : "UPSC";
+  const sys = MAINS_EVAL_SYSTEM(exam, input.paperCode, input.maxMarks);
+  const userMsg = `QUESTION (${input.paperCode}, ${input.maxMarks} marks):\n${input.questionText}\n\nCANDIDATE'S ANSWER:\n${input.answerText}`;
+
+  const sanitize = (j: Record<string, unknown>): MainsEvaluation => {
+    let score = typeof j.score === "number" ? j.score : 0;
+    score = Math.max(0, Math.min(input.maxMarks, Math.round(score * 10) / 10));
+    const breakdown = Array.isArray(j.breakdown) ? j.breakdown.filter((b: unknown): b is MainsEvaluation["breakdown"][0] =>
+      !!b && typeof (b as { dimension?: unknown }).dimension === "string").slice(0, 6).map((b) => ({
+        dimension: String(b.dimension), score: Number(b.score) || 0, max: Number(b.max) || 0, comment: String(b.comment ?? ""),
+      })) : [];
+    return {
+      score, breakdown,
+      strengths: Array.isArray(j.strengths) ? j.strengths.slice(0, 4).map(String) : [],
+      improvements: Array.isArray(j.improvements) ? j.improvements.slice(0, 5).map(String) : [],
+      verdict: typeof j.verdict === "string" ? j.verdict : "",
+    };
+  };
+  const parse = (raw: string): MainsEvaluation | null => {
+    const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    try { return sanitize(JSON.parse(clean)); } catch { return null; }
+  };
+
+  // Primary: Gemini.
+  if (process.env.GOOGLE_API_KEY) {
+    try {
+      const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction: sys, generationConfig: { responseMimeType: "application/json", temperature: 0.3 } });
+      const r = await model.generateContent(userMsg);
+      const out = parse(r.response.text());
+      if (out) return out;
+    } catch { /* fall through to Groq */ }
+  }
+  // Fallback: Groq.
+  if (process.env.GROQ_API_KEY) {
+    const res = await getGroq().chat.completions.create({
+      model: "llama-3.3-70b-versatile", max_tokens: 1500, response_format: { type: "json_object" },
+      messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
+    });
+    const out = parse(res.choices[0]?.message?.content ?? "{}");
+    if (out) return out;
+  }
+  throw new ChapterAnalysisError("AI evaluation is unavailable right now (no provider configured or both throttled). Please try again shortly.");
+}
+
 // â”€â”€ NCERT / Book batch processor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function processDocument(
   content: string,

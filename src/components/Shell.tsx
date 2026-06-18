@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network, BookOpen, Target, Settings,
+  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -35,6 +35,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { label: "Knowledge Hub",   href: "/knowledge",       icon: Network },
       { label: "NCERT Library",   href: "/ncert",           icon: BookOpen },
       { label: "PYQ Intelligence",href: "/pyq",             icon: Target, badge: "AI" },
+      { label: "Answer Lab",      href: "/answers",         icon: PenLine, badge: "AI" },
       { label: "Revision",        href: "/revision",        icon: RotateCcw },
       { label: "Library",         href: "/library",         icon: Library },
     ],
@@ -51,6 +52,7 @@ const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/knowledge":       { eyebrow: "KNOWLEDGE GRAPH",    title: "Knowledge Hub" },
   "/ncert":           { eyebrow: "DIGITAL LIBRARY",    title: "NCERT Library" },
   "/pyq":             { eyebrow: "PYQ INTELLIGENCE",   title: "Past Papers Decoded" },
+  "/answers":         { eyebrow: "MAINS ANSWER LAB",   title: "Answer Evaluation" },
   "/revision":        { eyebrow: "REVISION ENGINE",    title: "Spaced Repetition" },
   "/settings":        { eyebrow: "CONFIGURATION",       title: "Settings" },
   "/library":         { eyebrow: "ARCHIVE",            title: "Library" },

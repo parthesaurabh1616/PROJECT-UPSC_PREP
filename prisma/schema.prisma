@@ -117,8 +117,38 @@ model User {
   chapterProgress ChapterProgress[]
   pyqAttempts   PyqAttempt[]
   caReads       CaRead[]
+  mainsAnswers  MainsAnswer[]
 
   @@map("users")
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MAINS ANSWER LAB — AI-evaluated descriptive answers. This is
+//  the ONLY source of real written-paper scores, so the Command
+//  Center can compute a genuine (not benchmark-only) gap to target.
+// ══════════════════════════════════════════════════════════════
+model MainsAnswer {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examCode     String   @default("UPSC")
+  questionId   String?                         // optional link to a real PyqQuestion
+  paperCode    String                          // GS-I | GS-II | GS-III | GS-IV | ESSAY | OPTIONAL
+  questionText String
+  maxMarks     Int                             // 10 | 15 | 125 | 250
+  answerText   String
+  wordCount    Int      @default(0)
+  score        Float?                          // AI-assigned, realistic UPSC marking
+  breakdown    Json?                           // [{ dimension, score, max, comment }]
+  strengths    String[]
+  improvements String[]
+  verdict      String?                         // one-line examiner verdict
+  evaluatedAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, paperCode])
+  @@index([userId, evaluatedAt])
+  @@map("mains_answers")
 }
 
 // ══════════════════════════════════════════════════════════════

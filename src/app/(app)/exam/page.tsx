@@ -31,7 +31,10 @@ interface Data {
     ncertCoverage: Prov; pyqPractice: Prov; revision: Prov; currentAffairs: Prov;
     notes: Prov; study: Prov; streak: Prov;
     tests: { value: { attempted: number }; measured: false; note: string };
-    mainsAnswers: { value: { written: number }; measured: false; note: string };
+    mainsAnswers: {
+      value: { written: number; projection: { paper: string; answers: number; avgPct: number | null; projected: number | null; max: number; measured: boolean }[] };
+      measured?: boolean; note?: string; source?: string; method?: string; updatedAt?: string | null; activities?: string;
+    };
   };
 }
 
@@ -345,20 +348,51 @@ function Gap({ d }: { d: Data }) {
         </div>
       </Card>
 
+      {/* Written-paper gap vs the blueprint — real, from evaluated answers */}
       <Card className="p-5">
-        <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2"><AlertCircle size={13} className="text-amber-300" /> Not measured yet — shown honestly, never faked</p>
-        <div className="mt-3 space-y-2.5">
-          <div className="rounded-xl border border-line-subtle p-3">
-            <p className="text-[12.5px] font-medium text-ink">Mains / Essay / Optional scores</p>
-            <p className="mt-0.5 text-[11.5px] text-ink-3">{m.mainsAnswers.note}</p>
-          </div>
-          <div className="rounded-xl border border-line-subtle p-3">
-            <p className="text-[12.5px] font-medium text-ink">Test-series performance</p>
-            <p className="mt-0.5 text-[11.5px] text-ink-3">{m.tests.note}</p>
-          </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2">Written papers vs your {d.target.final} blueprint</p>
+          {m.mainsAnswers.measured && <Source p={{ source: m.mainsAnswers.source!, method: m.mainsAnswers.method!, updatedAt: m.mainsAnswers.updatedAt ?? null, activities: m.mainsAnswers.activities! }} />}
+        </div>
+        <p className="mt-1 mb-3 text-[11.5px] text-ink-3">
+          {m.mainsAnswers.measured
+            ? "Projected from your evaluated answers (average % × the counted maximum). Write more answers per paper to sharpen the projection."
+            : "No evaluated answers yet — these are blueprint targets only. "}
+          {!m.mainsAnswers.measured && <Link href="/answers" className="text-accent hover:underline">Open the Answer Lab →</Link>}
+        </p>
+        <div className="space-y-2">
+          {(() => {
+            const keyMap: Record<string, string> = { ESSAY: "essay", "GS-I": "gs1", "GS-II": "gs2", "GS-III": "gs3", "GS-IV": "gs4", OPTIONAL: "optional" };
+            return m.mainsAnswers.value.projection.map((p) => {
+              const bp = d.blueprint.find((b) => b.key === keyMap[p.paper]);
+              const target = bp?.target ?? null;
+              const gap = p.measured && p.projected != null && target != null ? p.projected - target : null;
+              return (
+                <div key={p.paper} className="flex items-center gap-3 border-b border-line-subtle py-2 last:border-0">
+                  <span className="w-28 shrink-0 text-[12px] text-ink">{p.paper}</span>
+                  <div className="flex-1"><Bar value={p.measured && p.projected != null ? Math.round((p.projected / p.max) * 100) : 0} /></div>
+                  <span className="w-44 shrink-0 text-right font-mono text-[10.5px] text-ink-2">
+                    {p.measured ? <>proj <b className="text-ink">{p.projected}</b>/{p.max} ({p.avgPct}% · {p.answers})</> : <span className="text-ink-3">not written yet</span>}
+                    {target != null && <span className="text-ink-3"> · target {target}</span>}
+                  </span>
+                  <span className={cn("w-12 shrink-0 text-right font-mono text-[10.5px]", gap == null ? "text-ink-3" : gap >= 0 ? "text-success" : "text-danger")}>
+                    {gap == null ? "—" : (gap >= 0 ? `+${gap}` : gap)}
+                  </span>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2"><AlertCircle size={13} className="text-amber-300" /> Still not measured — shown honestly, never faked</p>
+        <div className="mt-3 rounded-xl border border-line-subtle p-3">
+          <p className="text-[12.5px] font-medium text-ink">Test-series performance</p>
+          <p className="mt-0.5 text-[11.5px] text-ink-3">{m.tests.note}</p>
         </div>
         <p className="mt-3 text-[11.5px] leading-relaxed text-ink-3">
-          Because written-paper scores aren’t evaluated yet, the platform will not show a “readiness %” or an AIR prediction against the {d.target.final} target — that would be a fabricated number. The benchmark tab shows what the score <i>looks like</i>; the rows above show what you’ve genuinely done toward it.
+          The platform still shows no single “readiness %” or AIR prediction — those depend on full Prelims + Mains + Interview performance and would be fabricated. What you see is real: foundation activity above, and projected written scores from answers you’ve actually written and had evaluated.
         </p>
       </Card>
     </div>
