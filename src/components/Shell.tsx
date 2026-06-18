@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine,
+  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -36,6 +36,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { label: "NCERT Library",   href: "/ncert",           icon: BookOpen },
       { label: "PYQ Intelligence",href: "/pyq",             icon: Target, badge: "AI" },
       { label: "Answer Lab",      href: "/answers",         icon: PenLine, badge: "AI" },
+      { label: "Test Arena",      href: "/tests",           icon: ClipboardCheck, badge: "AI" },
       { label: "Revision",        href: "/revision",        icon: RotateCcw },
       { label: "Library",         href: "/library",         icon: Library },
     ],
@@ -53,6 +54,7 @@ const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/ncert":           { eyebrow: "DIGITAL LIBRARY",    title: "NCERT Library" },
   "/pyq":             { eyebrow: "PYQ INTELLIGENCE",   title: "Past Papers Decoded" },
   "/answers":         { eyebrow: "MAINS ANSWER LAB",   title: "Answer Evaluation" },
+  "/tests":           { eyebrow: "PRELIMS ARENA",       title: "Test Series" },
   "/revision":        { eyebrow: "REVISION ENGINE",    title: "Spaced Repetition" },
   "/settings":        { eyebrow: "CONFIGURATION",       title: "Settings" },
   "/library":         { eyebrow: "ARCHIVE",            title: "Library" },

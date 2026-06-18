@@ -26,7 +26,7 @@ export async function GET() {
 
   const [
     chapterDone, ncertTotal, attempts, dueCards, totalCards,
-    caRead, caTotal, notesCount, eventAgg, streak, mainsAns,
+    caRead, caTotal, notesCount, eventAgg, streak, mainsAns, testRows,
   ] = await Promise.all([
     prisma.chapterProgress.count({ where: { userId: DEMO_USER_ID } }),
     prisma.ncertChapter.count({ where: { kind: "chapter" } }),
@@ -39,6 +39,7 @@ export async function GET() {
     prisma.activityEvent.groupBy({ by: ["type"], where: { userId: DEMO_USER_ID }, _count: { _all: true }, _sum: { value: true }, _max: { createdAt: true } }),
     computeStreak(),
     prisma.mainsAnswer.findMany({ where: { userId: DEMO_USER_ID, evaluatedAt: { not: null }, score: { not: null } }, select: { paperCode: true, score: true, maxMarks: true, evaluatedAt: true } }),
+    prisma.testAttempt.findMany({ where: { userId: DEMO_USER_ID }, select: { percent: true, totalQ: true, correct: true, createdAt: true } }),
   ]);
 
   // ── Real written-paper performance from evaluated answers ──────
@@ -53,6 +54,11 @@ export async function GET() {
              : { paper: code, answers: 0, avgPct: null, projected: null, max, measured: false };
   });
   const lastEval = mainsAns.reduce<Date | null>((acc, a) => (a.evaluatedAt && (!acc || a.evaluatedAt > acc) ? a.evaluatedAt : acc), null);
+
+  // ── Real Prelims performance from auto-graded tests ───────────
+  const testCount = testRows.length;
+  const testAvgPct = testCount ? Math.round(testRows.reduce((s, t) => s + t.percent, 0) / testCount) : null;
+  const lastTest = testRows.reduce<Date | null>((acc, t) => (!acc || t.createdAt > acc ? t.createdAt : acc), null);
 
   // Per-type activity rollup (count, sum, last timestamp)
   const ev = new Map(eventAgg.map((e) => [e.type, { count: e._count._all, sum: e._sum.value ?? 0, last: e._max.createdAt }]));
@@ -112,8 +118,13 @@ export async function GET() {
         { streak: streak.streak, active30: streak.active30 },
         { source: "ActivityEvent", method: "consecutive days with ≥1 logged action", updatedAt: iso(streak.lastActive ? new Date(streak.lastActive) : null), activities: "all logged activity" },
       ),
-      // Honestly NOT measured — no test-series engine exists yet.
-      tests: { value: { attempted: 0 }, measured: false, note: "No test-series engine yet. Your test scores will appear here once tests are added." },
+      // Real now: auto-graded Prelims test attempts.
+      tests: testCount > 0
+        ? { measured: true, ...metric(
+            { attempted: testCount, avgPercent: testAvgPct },
+            { source: "TestAttempt (auto-graded)", method: "average % across your graded MCQ tests (UPSC marking: +2 correct, −0.66 wrong)", updatedAt: iso(lastTest), activities: `${testCount} tests attempted` },
+          ) }
+        : { value: { attempted: 0, avgPercent: null }, measured: false, note: "No tests attempted yet. Take a test in the Prelims Test Arena to measure your objective readiness." },
       // Real now: evaluated Mains answers → per-paper projection vs the blueprint.
       mainsAnswers: mainsAns.length > 0
         ? { measured: true, ...metric(

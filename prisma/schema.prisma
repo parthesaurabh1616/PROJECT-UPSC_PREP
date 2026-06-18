@@ -118,8 +118,54 @@ model User {
   pyqAttempts   PyqAttempt[]
   caReads       CaRead[]
   mainsAnswers  MainsAnswer[]
+  testAttempts  TestAttempt[]
 
   @@map("users")
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PRELIMS TEST ENGINE — an MCQ bank + auto-graded attempts.
+//  The ONLY source of real objective-test performance, so the
+//  Command Center can show measured Prelims readiness.
+// ══════════════════════════════════════════════════════════════
+model Mcq {
+  id          String   @id @default(cuid())
+  examCode    String   @default("UPSC")
+  subject     String                          // History | Geography | Polity | Economy | Environment | Science & Tech | Current Affairs
+  topic       String?
+  question    String
+  options     String[]                        // exactly 4
+  answerIndex Int                             // 0..3
+  explanation String   @default("")
+  source      String   @default("ai")         // ai | ncert | pyq
+  difficulty  String   @default("medium")
+  createdAt   DateTime @default(now())
+
+  @@index([examCode, subject])
+  @@map("mcqs")
+}
+
+model TestAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examCode    String   @default("UPSC")
+  mode        String   @default("subject")    // subject | mixed
+  subject     String?
+  totalQ      Int
+  correct     Int
+  wrong       Int
+  skipped     Int
+  score       Float                            // UPSC marking: +2 correct, −0.66 wrong
+  maxScore    Float
+  percent     Int
+  durationSec Int      @default(0)
+  answers     Json                             // [{ mcqId, chosen, correctIndex }]
+  bySubject   Json?                            // [{ subject, correct, total }]
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("test_attempts")
 }
 
 // ══════════════════════════════════════════════════════════════

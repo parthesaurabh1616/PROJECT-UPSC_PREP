@@ -313,6 +313,58 @@ export async function evaluateMainsAnswer(input: {
   throw new ChapterAnalysisError("AI evaluation is unavailable right now (no provider configured or both throttled). Please try again shortly.");
 }
 
+// ── Prelims MCQ generation — exam-standard, factual ───────────
+export interface GeneratedMcq {
+  question: string; options: string[]; answerIndex: number; explanation: string; difficulty: string;
+}
+
+const MCQ_SYSTEM = (exam: string, subject: string) => `You are a ${exam} Prelims question setter creating original, exam-standard MCQs on ${subject}. Each must be factually correct, single best answer, with four plausible options (no "All of the above" unless genuinely apt). Match real ${exam} Prelims difficulty and framing (statements-based, match-the-pairs, assertion-reason where natural). Avoid trivia; test conceptual clarity and application.
+
+Respond ONLY with valid JSON:
+{ "mcqs": [ { "question": "...", "options": ["A","B","C","D"], "answerIndex": <0-3>, "explanation": "one-line why the answer is correct + why others are not", "difficulty": "easy|medium|hard" } ] }
+No preamble, JSON only.`;
+
+/** Generate up to `count` Prelims MCQs for a subject (Gemini, Groq fallback). */
+export async function generateMcqs(subject: string, count: number, examCode: string, topic?: string): Promise<GeneratedMcq[]> {
+  const exam = examCode === "MPSC" ? "MPSC" : "UPSC";
+  const n = Math.max(1, Math.min(15, count));
+  const userMsg = `Generate ${n} ${exam} Prelims MCQs on ${subject}${topic ? ` (focus: ${topic})` : ""}. Vary the sub-topics and difficulty.`;
+
+  const sanitize = (j: Record<string, unknown>): GeneratedMcq[] => {
+    const arr = Array.isArray(j.mcqs) ? j.mcqs : [];
+    return arr
+      .filter((m: unknown): m is GeneratedMcq => {
+        const q = m as GeneratedMcq;
+        return !!q && typeof q.question === "string" && Array.isArray(q.options) && q.options.length === 4 && typeof q.answerIndex === "number" && q.answerIndex >= 0 && q.answerIndex <= 3;
+      })
+      .slice(0, n)
+      .map((m) => ({ question: m.question.trim(), options: m.options.map(String), answerIndex: m.answerIndex, explanation: String(m.explanation ?? ""), difficulty: ["easy", "medium", "hard"].includes(m.difficulty) ? m.difficulty : "medium" }));
+  };
+  const parse = (raw: string): GeneratedMcq[] => {
+    const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    try { return sanitize(JSON.parse(clean)); } catch { return []; }
+  };
+
+  if (process.env.GOOGLE_API_KEY) {
+    try {
+      const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction: MCQ_SYSTEM(exam, subject), generationConfig: { responseMimeType: "application/json", temperature: 0.7 } });
+      const r = await model.generateContent(userMsg);
+      const out = parse(r.response.text());
+      if (out.length) return out;
+    } catch { /* fall through */ }
+  }
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const res = await getGroq().chat.completions.create({
+        model: "llama-3.3-70b-versatile", max_tokens: 3000, response_format: { type: "json_object" },
+        messages: [{ role: "system", content: MCQ_SYSTEM(exam, subject) }, { role: "user", content: userMsg }],
+      });
+      return parse(res.choices[0]?.message?.content ?? "{}");
+    } catch { return []; }
+  }
+  return [];
+}
+
 // â”€â”€ NCERT / Book batch processor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function processDocument(
   content: string,

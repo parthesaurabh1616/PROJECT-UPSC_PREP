@@ -30,7 +30,10 @@ interface Data {
   metrics: {
     ncertCoverage: Prov; pyqPractice: Prov; revision: Prov; currentAffairs: Prov;
     notes: Prov; study: Prov; streak: Prov;
-    tests: { value: { attempted: number }; measured: false; note: string };
+    tests: {
+      value: { attempted: number; avgPercent: number | null };
+      measured?: boolean; note?: string; source?: string; method?: string; updatedAt?: string | null; activities?: string;
+    };
     mainsAnswers: {
       value: { written: number; projection: { paper: string; answers: number; avgPct: number | null; projected: number | null; max: number; measured: boolean }[] };
       measured?: boolean; note?: string; source?: string; method?: string; updatedAt?: string | null; activities?: string;
@@ -385,14 +388,31 @@ function Gap({ d }: { d: Data }) {
         </div>
       </Card>
 
+      {/* Prelims readiness — real when tests exist */}
       <Card className="p-5">
-        <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2"><AlertCircle size={13} className="text-amber-300" /> Still not measured — shown honestly, never faked</p>
-        <div className="mt-3 rounded-xl border border-line-subtle p-3">
-          <p className="text-[12.5px] font-medium text-ink">Test-series performance</p>
-          <p className="mt-0.5 text-[11.5px] text-ink-3">{m.tests.note}</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2">Prelims objective readiness</p>
+          {m.tests.measured && <Source p={{ source: m.tests.source!, method: m.tests.method!, updatedAt: m.tests.updatedAt ?? null, activities: m.tests.activities! }} />}
         </div>
-        <p className="mt-3 text-[11.5px] leading-relaxed text-ink-3">
-          The platform still shows no single “readiness %” or AIR prediction — those depend on full Prelims + Mains + Interview performance and would be fabricated. What you see is real: foundation activity above, and projected written scores from answers you’ve actually written and had evaluated.
+        {m.tests.measured ? (
+          <div className="mt-2 flex items-center gap-4">
+            <div className="text-center">
+              <p className="font-display text-[30px] font-semibold leading-none text-ink">{m.tests.value.avgPercent}%</p>
+              <p className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-ink-3">avg over {m.tests.value.attempted} tests</p>
+            </div>
+            <p className="flex-1 text-[11.5px] leading-relaxed text-ink-3">Your average across auto-graded MCQ tests (UPSC marking). Keep taking subject-wise tests in the <Link href="/tests" className="text-accent hover:underline">Test Arena</Link> to track real Prelims progress.</p>
+          </div>
+        ) : (
+          <div className="mt-2 rounded-xl border border-line-subtle p-3">
+            <p className="text-[11.5px] text-ink-3">{m.tests.note} <Link href="/tests" className="text-accent hover:underline">Open the Test Arena →</Link></p>
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2"><AlertCircle size={13} className="text-amber-300" /> The honest line we still hold</p>
+        <p className="mt-2 text-[11.5px] leading-relaxed text-ink-3">
+          There is still no single “readiness %” or AIR prediction — a true number needs full Prelims + Mains + Interview together, and anything else would be fabricated. But every part you see is now real and auditable: foundation activity, projected written scores from answers you actually wrote, and Prelims readiness from tests you actually took.
         </p>
       </Card>
     </div>
