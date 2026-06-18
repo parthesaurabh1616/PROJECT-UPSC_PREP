@@ -1,15 +1,23 @@
 ﻿import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleAIFileManager, FileState } from "@google/generative-ai/server";
 import Groq from "groq-sdk";
 import fs from "fs";
 
 // â”€â”€ Clients (lazy-init so missing keys don't crash module load) â”€
 let _genAI: GoogleGenerativeAI | null = null;
 let _groq:  Groq | null = null;
+let _fileMgr: GoogleAIFileManager | null = null;
 
 function getGenAI() {
   if (!process.env.GOOGLE_API_KEY) throw new Error("GOOGLE_API_KEY is not set in .env");
   if (!_genAI) _genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
   return _genAI;
+}
+
+function getFileMgr() {
+  if (!process.env.GOOGLE_API_KEY) throw new Error("GOOGLE_API_KEY is not set in .env");
+  if (!_fileMgr) _fileMgr = new GoogleAIFileManager(process.env.GOOGLE_API_KEY);
+  return _fileMgr;
 }
 
 function getGroq() {
@@ -285,40 +293,84 @@ Generate 5 MCQs. Be precise and exam-relevant. No preamble, JSON only.`;
 
 export class ChapterAnalysisError extends Error {}
 
+// Base64 inflates a PDF ~33%; the inline-request cap is ~20MB, so keep
+// inline for small files and route anything larger through the Files API.
+const INLINE_MAX_MB = 12;
+
+/**
+ * Read a PDF with Gemini and return the raw model text.
+ *  - Small PDFs (<= INLINE_MAX_MB): sent inline (one fast round-trip).
+ *  - Large PDFs: uploaded via the Files API (up to 2GB, free tier), polled
+ *    until ACTIVE, referenced by URI, then deleted. No practical size limit.
+ * Throws ChapterAnalysisError with a human-readable reason.
+ */
+async function generateFromPdf(pdfPath: string, systemInstruction: string, userText: string): Promise<string> {
+  if (!fs.existsSync(pdfPath)) throw new ChapterAnalysisError("The PDF file is missing on disk.");
+  const sizeMb = fs.statSync(pdfPath).size / (1024 * 1024);
+  const model = getGenAI().getGenerativeModel({
+    model: "gemini-2.5-flash",
+    // JSON mode → always valid JSON (no fence-stripping needed); high ceiling
+    // so a 100-question prelims paper is never truncated mid-array.
+    generationConfig: { responseMimeType: "application/json", maxOutputTokens: 32768, temperature: 0.2 },
+  });
+
+  try {
+    // ── Small: inline base64 ──────────────────────────────────
+    if (sizeMb <= INLINE_MAX_MB) {
+      const b64 = fs.readFileSync(pdfPath).toString("base64");
+      const result = await model.generateContent({
+        systemInstruction,
+        contents: [{ role: "user", parts: [
+          { inlineData: { mimeType: "application/pdf", data: b64 } },
+          { text: userText },
+        ] }],
+      });
+      return result.response.text();
+    }
+
+    // ── Large: Files API (upload → poll → reference → cleanup) ─
+    const mgr = getFileMgr();
+    const displayName = pdfPath.split(/[\\/]/).pop() ?? "paper.pdf";
+    const uploaded = await mgr.uploadFile(pdfPath, { mimeType: "application/pdf", displayName });
+    const fileName = uploaded.file.name;
+    try {
+      let file = uploaded.file;
+      const deadline = Date.now() + 120_000; // scanned PDFs can take a while
+      while (file.state === FileState.PROCESSING && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2500));
+        file = await mgr.getFile(fileName);
+      }
+      if (file.state === FileState.FAILED) throw new ChapterAnalysisError("Gemini could not process this PDF (it may be corrupted or password-protected).");
+      if (file.state === FileState.PROCESSING) throw new ChapterAnalysisError("Gemini is still processing this large PDF. Please try again in a moment.");
+
+      const result = await model.generateContent({
+        systemInstruction,
+        contents: [{ role: "user", parts: [
+          { fileData: { mimeType: file.mimeType, fileUri: file.uri } },
+          { text: userText },
+        ] }],
+      });
+      return result.response.text();
+    } finally {
+      mgr.deleteFile(fileName).catch(() => { /* best-effort cleanup */ });
+    }
+  } catch (e) {
+    if (e instanceof ChapterAnalysisError) throw e;
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("429") || /quota|rate.?limit/i.test(msg)) throw new ChapterAnalysisError("Gemini's free-tier quota is exhausted for now. It resets daily (midnight PT) — try again later.");
+    if (msg.includes("404")) throw new ChapterAnalysisError("Gemini model unavailable for this key.");
+    if (msg.includes("503") || /overload|unavailable/i.test(msg)) throw new ChapterAnalysisError("Gemini is temporarily overloaded. Please try again in a minute.");
+    throw new ChapterAnalysisError(`Gemini error: ${msg.slice(0, 160)}`);
+  }
+}
+
 /** Analyse an NCERT chapter PDF with Gemini (native PDF reading). Gemini-only — Groq can't read PDFs.
  *  Throws ChapterAnalysisError with a human-readable reason so the API can surface it. */
 export async function analyzeChapterPdf(pdfPath: string, examCode: string): Promise<ChapterAnalysis> {
   if (!process.env.GOOGLE_API_KEY) throw new ChapterAnalysisError("Gemini is not configured (GOOGLE_API_KEY missing). Chapter AI needs Gemini to read the PDF.");
   const exam = examCode === "MPSC" ? "MPSC" : "UPSC";
 
-  const buf = fs.readFileSync(pdfPath);
-  const sizeMb = buf.length / (1024 * 1024);
-  // Gemini inline data hard limit ~20MB request; keep headroom. NCERT chapters are < 10MB.
-  if (sizeMb > 18) throw new ChapterAnalysisError(`This chapter PDF is ${sizeMb.toFixed(0)}MB — too large for inline analysis. (Large combined-book PDFs aren't supported yet.)`);
-
-  let raw: string;
-  try {
-    const b64 = buf.toString("base64");
-    const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent({
-      systemInstruction: CHAPTER_SYSTEM(exam),
-      contents: [{
-        role: "user",
-        parts: [
-          { inlineData: { mimeType: "application/pdf", data: b64 } },
-          { text: "Analyse this NCERT chapter and return the JSON study material." },
-        ],
-      }],
-    });
-    raw = result.response.text();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("429") || /quota/i.test(msg)) {
-      throw new ChapterAnalysisError("Gemini's free-tier quota is exhausted for now. It resets daily (midnight PT) — try again later. (Chapter AI must use Gemini to read PDFs; Groq can't.)");
-    }
-    if (msg.includes("404")) throw new ChapterAnalysisError("Gemini model unavailable for this key.");
-    throw new ChapterAnalysisError(`Gemini error: ${msg.slice(0, 160)}`);
-  }
+  const raw = await generateFromPdf(pdfPath, CHAPTER_SYSTEM(exam), "Analyse this NCERT chapter and return the JSON study material.");
 
   const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
   let j: Record<string, unknown>;
@@ -370,25 +422,8 @@ export async function extractPyqQuestions(
 ): Promise<PyqExtractedQ[]> {
   if (!process.env.GOOGLE_API_KEY) throw new ChapterAnalysisError("Gemini not configured — PYQ extraction needs Gemini to read the PDF.");
   const exam = examCode === "MPSC" ? "MPSC" : "UPSC";
-  const buf = fs.readFileSync(pdfPath);
-  if (buf.length / (1024 * 1024) > 18) throw new ChapterAnalysisError("This paper PDF is too large for inline extraction.");
 
-  let raw: string;
-  try {
-    const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent({
-      systemInstruction: PYQ_SYSTEM(exam, stage, paperName),
-      contents: [{ role: "user", parts: [
-        { inlineData: { mimeType: "application/pdf", data: buf.toString("base64") } },
-        { text: "Extract all questions from this paper as JSON." },
-      ] }],
-    });
-    raw = result.response.text();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("429") || /quota/i.test(msg)) throw new ChapterAnalysisError("Gemini's free-tier quota is exhausted — resets daily (midnight PT). Try again later.");
-    throw new ChapterAnalysisError(`Gemini error: ${msg.slice(0, 160)}`);
-  }
+  const raw = await generateFromPdf(pdfPath, PYQ_SYSTEM(exam, stage, paperName), "Extract all questions from this paper as JSON.");
 
   const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
   let j: Record<string, unknown>;

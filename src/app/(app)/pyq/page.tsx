@@ -187,6 +187,7 @@ function Reader({ paper, onClose }: { paper: PaperLite; onClose: () => void }) {
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                 {running ? "Reading the paper…" : "Extract questions"}
               </button>
+              {running && <p className="max-w-[280px] text-[11px] leading-relaxed text-ink-3">Large scanned papers can take 1–2 minutes to read. This runs once — results are cached afterward.</p>}
               {err && <p className="text-[11px] text-danger">{err}</p>}
             </div>
           )}
