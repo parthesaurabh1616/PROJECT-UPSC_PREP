@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { BookOpen, Loader2, ChevronLeft, FileText, BookMarked, X, GraduationCap, Sparkles, Lightbulb, ListChecks, Check } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
+import { RelatedPanel } from "@/components/RelatedPanel";
 import { cn } from "@/lib/utils";
 
 interface BookLite { id: string; klass: number; subject: string; title: string; coverStyle: number; chapterCount: number; }
@@ -346,6 +347,11 @@ function Reader({ chapter, bookTitle, onClose }: { chapter: Chapter; bookTitle: 
               </div>
             </>
           )}
+
+          {/* Related across the platform — semantic, always available */}
+          <div className="max-h-[40%] overflow-y-auto border-t border-line p-3">
+            <RelatedPanel refKind="NCERT" refId={chapter.id} />
+          </div>
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Library, Loader2, ChevronLeft, Sparkles, FileText, Tag, Hash, Layers, TrendingUp, Check } from "lucide-react";
 import { Card } from "@/components/ui";
+import { RelatedPanel } from "@/components/RelatedPanel";
 import { cn } from "@/lib/utils";
 
 interface PaperLite {
@@ -229,6 +230,12 @@ function Reader({ paper, onClose }: { paper: PaperLite; onClose: () => void }) {
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {topTopics.length > 0 && (
+                <div className="border-b border-line p-4">
+                  <RelatedPanel query={topTopics.slice(0, 6).map(([t]) => t).join(", ")} title="Related across your platform" />
                 </div>
               )}
 

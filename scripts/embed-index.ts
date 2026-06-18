@@ -63,15 +63,27 @@ async function main() {
     content: `${n.title}. ${n.subject ?? ""} ${n.tags.join(" ")} ${n.content}`,
   });
 
-  console.log(`Embedding ${items.length} items (CA:${ca.length} PYQ:${pyq.length} NCERT:${ncert.length} NOTE:${notes.length})…`);
+  // Skip items already embedded so re-runs only fill gaps (cheap, quota-friendly).
+  // Pass --all to force a full re-embed (e.g. after changing the embedding model).
+  const force = process.argv.includes("--all");
+  const existing = new Set<string>();
+  if (!force) {
+    const rows = await prisma.$queryRawUnsafe<{ kind: string; refId: string }[]>(
+      `SELECT kind, "refId" FROM embeddings WHERE embedding IS NOT NULL`,
+    );
+    for (const r of rows) existing.add(`${r.kind}:${r.refId}`);
+  }
+  const todo = items.filter((it) => !existing.has(`${it.kind}:${it.refId}`));
+
+  console.log(`Corpus ${items.length} (CA:${ca.length} PYQ:${pyq.length} NCERT:${ncert.length} NOTE:${notes.length}) · already indexed ${existing.size} · embedding ${todo.length}${force ? " (forced)" : ""}…`);
 
   let done = 0;
-  for (let i = 0; i < items.length; i += 100) {
-    const slice = items.slice(i, i + 100);
+  for (let i = 0; i < todo.length; i += 100) {
+    const slice = todo.slice(i, i + 100);
     done += await indexBatch(slice);
-    console.log(`  ${Math.min(i + 100, items.length)}/${items.length} processed (${done} embedded)`);
+    console.log(`  ${Math.min(i + 100, todo.length)}/${todo.length} processed (${done} embedded)`);
   }
-  console.log(`Done. ${done} embeddings written.`);
+  console.log(`Done. ${done} new embeddings written. Total indexed: ${existing.size + done}.`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());

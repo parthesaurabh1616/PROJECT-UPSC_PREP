@@ -132,6 +132,33 @@ export async function semanticSearch(
   return rows.filter((r) => Number(r.score) >= minScore).map((r) => ({ ...r, score: Number(r.score) }));
 }
 
+/**
+ * Items most semantically similar to an already-indexed item, using its
+ * STORED vector (no re-embedding, no Gemini call). Excludes the item itself.
+ */
+export async function relatedByRef(
+  kind: string, refId: string,
+  opts: { examCode?: string; limit?: number; minScore?: number } = {},
+): Promise<SemanticHit[]> {
+  const limit = opts.limit ?? 12;
+  const minScore = opts.minScore ?? 0.45;
+  const params: unknown[] = [kind, refId];
+  const where: string[] = ["e.embedding IS NOT NULL", `NOT (e.kind = $1 AND e."refId" = $2)`];
+  if (opts.examCode) { params.push([opts.examCode, "ALL"]); where.push(`(e.kind IN ('NCERT','NOTE') OR e."examCode" = ANY($${params.length}))`); }
+  params.push(limit);
+
+  const rows = await prisma.$queryRawUnsafe<{ kind: string; refId: string; content: string; score: number }[]>(
+    `WITH q AS (SELECT embedding FROM embeddings WHERE kind = $1 AND "refId" = $2 AND embedding IS NOT NULL LIMIT 1)
+     SELECT e.kind, e."refId", e.content, 1 - (e.embedding <=> q.embedding) AS score
+     FROM embeddings e, q
+     WHERE ${where.join(" AND ")}
+     ORDER BY e.embedding <=> q.embedding
+     LIMIT $${params.length}`,
+    ...params,
+  ).catch(() => []);
+  return rows.filter((r) => Number(r.score) >= minScore).map((r) => ({ ...r, score: Number(r.score) }));
+}
+
 /** True when the index has at least one usable vector. */
 export async function indexReady(): Promise<boolean> {
   try {
