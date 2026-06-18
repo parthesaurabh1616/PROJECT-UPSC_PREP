@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { processAffair } from "@/lib/ai";
+import { indexContent } from "@/lib/embeddings";
 import { scoreAffair } from "@/lib/scoring";
 import { FEEDS, type Feed, type FeedCategory } from "@/lib/feeds";
 import { XMLParser } from "fast-xml-parser";
@@ -182,7 +183,7 @@ export async function POST() {
         priority: processed.priority,
         publishedAt: item.publishedAt,
       });
-      await prisma.currentAffair.create({
+      const created = await prisma.currentAffair.create({
         data: {
           headline: item.headline,
           summary: item.summary,
@@ -205,6 +206,10 @@ export async function POST() {
           publishedAt: item.publishedAt,
         },
       });
+      // Best-effort: add to the semantic index so the mentor can retrieve it.
+      const both = item.examScope.includes("UPSC") && item.examScope.includes("MPSC");
+      void indexContent("CA", created.id, both ? "ALL" : (item.examScope[0] ?? "UPSC"),
+        `${created.headline}. ${processed.whyInNews ?? ""} ${processed.background ?? ""} ${processed.gsMapping.join(" ")} ${processed.tags.join(" ")}`).catch(() => {});
       ingested++;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

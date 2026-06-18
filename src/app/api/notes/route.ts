@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma, ensureDemoUser, DEMO_USER_ID } from "@/lib/db";
 import { logEvent } from "@/lib/activity";
+import { indexContent } from "@/lib/embeddings";
 
 export async function GET() {
   await ensureDemoUser();
@@ -24,5 +25,7 @@ export async function POST(req: NextRequest) {
     },
   });
   await logEvent({ type: "NOTE_CREATED", refId: note.id, subject: note.subject });
+  // Best-effort: add the note to the semantic index so the mentor can find it.
+  void indexContent("NOTE", note.id, "ALL", `${note.title}. ${note.subject ?? ""} ${note.tags.join(" ")} ${note.content}`).catch(() => {});
   return Response.json(note);
 }

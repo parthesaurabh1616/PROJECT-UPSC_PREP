@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { extractPyqQuestions, ChapterAnalysisError } from "@/lib/ai";
+import { indexBatch } from "@/lib/embeddings";
 import fs from "fs";
 
 /**
@@ -39,6 +40,12 @@ export async function POST(req: NextRequest) {
       await tx.pyqPaper.update({ where: { id: paper.id }, data: { questionCount: extracted.length, extractedAt: new Date() } });
       return tx.pyqQuestion.findMany({ where: { paperId: paper.id }, orderBy: { number: "asc" } });
     });
+
+    // Best-effort: add the new questions to the semantic index.
+    void indexBatch(saved.map((q) => ({
+      kind: "PYQ", refId: q.id, examCode: paper.examCode,
+      content: `${q.text} ${q.topic ?? ""} ${q.subtopic ?? ""} ${q.keywords.join(" ")}`,
+    }))).catch(() => {});
 
     return Response.json({ cached: false, paper: { id: paper.id, questionCount: saved.length, extractedAt: new Date() }, questions: saved });
   } catch (e) {

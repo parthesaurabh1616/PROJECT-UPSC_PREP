@@ -300,6 +300,27 @@ model PyqQuestion {
   @@map("pyq_questions")
 }
 
+// ══════════════════════════════════════════════════════════════
+//  SEMANTIC INDEX — pgvector embeddings of all platform content.
+//  Powers the AI Mentor's meaning-based retrieval (not keywords).
+//  The `embedding` column is written/queried via raw SQL because
+//  Prisma Client cannot operate on the native `vector` type.
+// ══════════════════════════════════════════════════════════════
+model Embedding {
+  id        String   @id @default(cuid())
+  kind      String                          // CA | PYQ | NCERT | NOTE
+  refId     String                          // id of the source row
+  examCode  String   @default("UPSC")
+  content   String                          // the text that was embedded (for display/debug)
+  embedding Unsupported("vector(768)")?     // text-embedding-004 → 768 dims
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([kind, refId])
+  @@index([kind])
+  @@map("embeddings")
+}
+
 // ── Notes (second brain) ──────────────────────────────────────
 model Note {
   id        String   @id @default(cuid())

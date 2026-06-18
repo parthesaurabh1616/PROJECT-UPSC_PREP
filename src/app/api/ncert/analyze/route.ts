@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getActiveProfile } from "@/lib/exam";
 import { analyzeChapterPdf, ChapterAnalysisError } from "@/lib/ai";
+import { indexContent } from "@/lib/embeddings";
 import fs from "fs";
 
 export const maxDuration = 60;
@@ -65,5 +66,9 @@ export async function POST(req: NextRequest) {
       aiProcessedAt: new Date(),
     },
   });
+  // Best-effort: refresh the chapter's vector with the richer analysed content.
+  void prisma.ncertChapter.findUnique({ where: { id: chapterId }, include: { book: true } }).then((c) => {
+    if (c) return indexContent("NCERT", c.id, "ALL", `Class ${c.book.klass} ${c.book.subject}: ${c.title}. ${c.book.title}. ${c.aiConcepts.join(" ")} ${c.aiFacts.join(" ")}`);
+  }).catch(() => {});
   return Response.json(shape(updated));
 }
