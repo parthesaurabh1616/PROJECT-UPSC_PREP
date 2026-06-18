@@ -109,8 +109,79 @@ model User {
   tasks         Task[]
   files         LibraryFile[]
   examProfiles  UserExamProfile[]
+  activity      ActivityEvent[]
+  chapterProgress ChapterProgress[]
+  pyqAttempts   PyqAttempt[]
+  caReads       CaRead[]
 
   @@map("users")
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ACTIVITY LEDGER — the single source of truth for every metric.
+//  Append-only. Every honest dashboard number is a GROUP BY over
+//  this table. If there is no event, the metric shows "no data".
+// ══════════════════════════════════════════════════════════════
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examCode  String   @default("UPSC")
+  // CHAPTER_READ | PYQ_ATTEMPTED | CA_READ | NOTE_CREATED |
+  // REVISION_REVIEWED | STUDY_SESSION | TEST_ATTEMPTED | ANSWER_WRITTEN
+  type      String
+  refId     String?                   // chapterId / questionId / affairId / noteId / cardId
+  subject   String?                   // for per-subject rollups
+  value     Int      @default(0)      // minutes (study), correct=1/partial/0 (pyq), SM-2 grade (review)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, type])
+  @@index([userId, subject])
+  @@map("activity_events")
+}
+
+// ── Per-user NCERT chapter completion ─────────────────────────
+model ChapterProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapterId   String
+  status      String   @default("completed") // reading | completed
+  completedAt DateTime @default(now())
+
+  @@unique([userId, chapterId])
+  @@index([userId])
+  @@map("chapter_progress")
+}
+
+// ── Per-user PYQ attempt (self-rated) ─────────────────────────
+model PyqAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId  String
+  paperId     String?
+  subject     String?
+  selfRating  String   @default("attempted") // correct | partial | wrong | attempted
+  attemptedAt DateTime @default(now())
+
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@map("pyq_attempts")
+}
+
+// ── Per-user current-affairs read receipt ─────────────────────
+model CaRead {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  affairId  String
+  readAt    DateTime @default(now())
+
+  @@unique([userId, affairId])
+  @@index([userId])
+  @@map("ca_reads")
 }
 
 // ── AI Mentor: conversations + messages ───────────────────────

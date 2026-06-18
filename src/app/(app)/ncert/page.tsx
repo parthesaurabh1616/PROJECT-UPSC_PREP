@@ -175,6 +175,23 @@ function Reader({ chapter, bookTitle, onClose }: { chapter: Chapter; bookTitle: 
   const [reveal, setReveal]     = useState<Set<number>>(new Set());
   const [revMsg, setRevMsg]     = useState("");
   const [revBusy, setRevBusy]   = useState(false);
+  const [done, setDone]         = useState(false);
+  const [doneBusy, setDoneBusy] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/ncert/complete?chapterId=${chapter.id}`).then((r) => r.json())
+      .then((d: { completed?: boolean }) => setDone(!!d.completed)).catch(() => {});
+  }, [chapter.id]);
+
+  const toggleDone = async () => {
+    setDoneBusy(true);
+    const next = !done;
+    try {
+      await fetch("/api/ncert/complete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chapterId: chapter.id, undo: !next }) });
+      setDone(next);
+    } catch { /* */ }
+    setDoneBusy(false);
+  };
 
   const toRevision = async () => {
     setRevBusy(true); setRevMsg("");
@@ -219,6 +236,12 @@ function Reader({ chapter, bookTitle, onClose }: { chapter: Chapter; bookTitle: 
           <p className="truncate font-display text-[14px] font-semibold text-ink">{analysis?.title || chapter.title}</p>
           <p className="truncate text-[11px] text-ink-3">{bookTitle}</p>
         </div>
+        <button onClick={() => { void toggleDone(); }} disabled={doneBusy}
+          className={cn("ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] transition-colors disabled:opacity-50",
+            done ? "border-success/50 bg-success/12 text-success" : "border-line text-ink-2 hover:border-accent/40 hover:text-ink")}>
+          {doneBusy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+          {done ? "Completed" : "Mark complete"}
+        </button>
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[1fr_400px]">

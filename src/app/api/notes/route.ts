@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, ensureDemoUser, DEMO_USER_ID } from "@/lib/db";
+import { logEvent } from "@/lib/activity";
 
 export async function GET() {
   await ensureDemoUser();
@@ -22,5 +23,6 @@ export async function POST(req: NextRequest) {
       tags: body.tags ?? [],
     },
   });
+  await logEvent({ type: "NOTE_CREATED", refId: note.id, subject: note.subject });
   return Response.json(note);
 }

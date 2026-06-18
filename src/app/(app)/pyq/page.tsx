@@ -119,6 +119,7 @@ function Reader({ paper, onClose }: { paper: PaperLite; onClose: () => void }) {
   const [running, setRunning]     = useState(false);
   const [err, setErr]             = useState("");
   const [extractedAt, setExtractedAt] = useState<string | null>(paper.extractedAt);
+  const [attempts, setAttempts]   = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch(`/api/pyq?paper=${paper.id}`).then((r) => r.json())
@@ -126,7 +127,16 @@ function Reader({ paper, onClose }: { paper: PaperLite; onClose: () => void }) {
         if (Array.isArray(d.questions)) setQuestions(d.questions);
         if (d.extractedAt) setExtractedAt(d.extractedAt);
       }).catch(() => {}).finally(() => setLoading(false));
+    fetch(`/api/pyq/attempt?paperId=${paper.id}`).then((r) => r.json())
+      .then((d: { attempts?: Record<string, string> }) => setAttempts(d.attempts ?? {})).catch(() => {});
   }, [paper.id]);
+
+  const rate = async (questionId: string, selfRating: string) => {
+    setAttempts((a) => ({ ...a, [questionId]: selfRating }));
+    try {
+      await fetch("/api/pyq/attempt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ questionId, selfRating }) });
+    } catch { /* */ }
+  };
 
   const extract = async (force = false) => {
     setRunning(true); setErr("");
@@ -222,6 +232,19 @@ function Reader({ paper, onClose }: { paper: PaperLite; onClose: () => void }) {
                       {q.topic && <span className="rounded bg-violet-400/12 px-1.5 py-0.5 text-[10px] text-violet-300">{q.topic}</span>}
                       {q.gsMapping.map((g) => <span key={g} className="rounded bg-emerald-400/12 px-1.5 py-0.5 font-mono text-[9.5px] text-emerald-300">{g}</span>)}
                       {q.keywords.slice(0, 4).map((k) => <span key={k} className="flex items-center gap-0.5 text-[10px] text-ink-3"><Tag size={8} />{k}</span>)}
+                    </div>
+                    {/* Self-rate this attempt → real accuracy data */}
+                    <div className="mt-2.5 flex items-center gap-1.5 border-t border-line-subtle pt-2">
+                      <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink-3">Self-rate:</span>
+                      {([["correct", "Correct", "emerald"], ["partial", "Partial", "amber"], ["wrong", "Wrong", "rose"]] as const).map(([val, label, tone]) => (
+                        <button key={val} onClick={() => { void rate(q.id, val); }}
+                          className={cn("rounded px-2 py-0.5 text-[10px] transition-colors",
+                            attempts[q.id] === val
+                              ? tone === "emerald" ? "bg-emerald-400/25 text-emerald-200" : tone === "amber" ? "bg-amber-400/25 text-amber-200" : "bg-rose-400/25 text-rose-200"
+                              : "border border-line text-ink-3 hover:text-ink")}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 ))}

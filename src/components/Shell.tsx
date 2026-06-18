@@ -205,22 +205,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-line-subtle pt-3">
-          <div className="relative overflow-hidden rounded-xl border border-line bg-surface-2/60 p-3 backdrop-blur">
-            <div aria-hidden className="pointer-events-none absolute -right-4 -top-6 h-20 w-20 rounded-full bg-accent/14 blur-2xl" />
-            <div className="relative flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-accent via-gold to-danger shadow-glow-amber">
-                <Flame size={13} className="text-bg" />
-              </span>
-              <div>
-                <p className="font-display text-[17px] font-semibold text-ink leading-none">{user.streak}</p>
-                <p className="mt-0.5 font-mono text-[8.5px] uppercase tracking-[0.18em] text-ink-3">Day streak</p>
-              </div>
-              <div className="ml-auto text-right">
-                <p className="font-display text-[12px] font-semibold text-accent-2 leading-none">Tier IV</p>
-                <p className="mt-0.5 font-mono text-[8.5px] uppercase tracking-[0.18em] text-ink-3">Tapasvi</p>
-              </div>
-            </div>
-          </div>
+          <StreakBadge />
         </div>
       </aside>
 
@@ -283,6 +268,36 @@ export function Shell({ children }: { children: ReactNode }) {
       </main>
 
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+    </div>
+  );
+}
+
+/* ── Streak badge — real streak from the activity ledger ─────── */
+function StreakBadge() {
+  const [s, setS] = useState<{ streak: number; active30: number } | null>(null);
+  useEffect(() => {
+    fetch("/api/overview", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { streak?: { streak: number; active30: number } }) => { if (d.streak) setS(d.streak); })
+      .catch(() => {});
+  }, []);
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-line bg-surface-2/60 p-3 backdrop-blur">
+      <div aria-hidden className="pointer-events-none absolute -right-4 -top-6 h-20 w-20 rounded-full bg-accent/14 blur-2xl" />
+      <div className="relative flex items-center gap-2.5">
+        <span className={cn("grid h-8 w-8 place-items-center rounded-lg shadow-glow-amber",
+          s && s.streak > 0 ? "bg-gradient-to-br from-accent via-gold to-danger" : "bg-surface-2 border border-line")}>
+          <Flame size={13} className={s && s.streak > 0 ? "text-bg" : "text-ink-3"} />
+        </span>
+        <div>
+          <p className="font-display text-[17px] font-semibold text-ink leading-none">{s ? s.streak : "—"}</p>
+          <p className="mt-0.5 font-mono text-[8.5px] uppercase tracking-[0.18em] text-ink-3">Day streak</p>
+        </div>
+        <div className="ml-auto text-right">
+          <p className="font-display text-[12px] font-semibold text-accent-2 leading-none">{s ? s.active30 : "—"}<span className="text-ink-3">/30</span></p>
+          <p className="mt-0.5 font-mono text-[8.5px] uppercase tracking-[0.18em] text-ink-3">Active days</p>
+        </div>
+      </div>
     </div>
   );
 }
