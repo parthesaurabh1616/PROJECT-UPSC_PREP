@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Library, Loader2, ChevronLeft, Sparkles, FileText, Tag, Hash, Layers, TrendingUp } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Library, Loader2, ChevronLeft, Sparkles, FileText, Tag, Hash, Layers, TrendingUp, Check } from "lucide-react";
 import { Card } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,13 @@ export default function PyqPage() {
   const [loading, setLoading] = useState(true);
   const [stage, setStage]     = useState<string>("prelims");
   const [reader, setReader]   = useState<PaperLite | null>(null);
+  const [byPaper, setByPaper] = useState<Record<string, { attempted: number; correct: number }>>({});
+
+  const loadProgress = useCallback(() => {
+    fetch("/api/pyq/progress").then((r) => r.json())
+      .then((d: { byPaper?: Record<string, { attempted: number; correct: number }> }) => setByPaper(d.byPaper ?? {}))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/pyq").then((r) => r.json()).then((d: { stages: StageGroup[] }) => {
@@ -36,9 +43,10 @@ export default function PyqPage() {
       if (s.length && !s.some((x) => x.stage === "prelims")) setStage(s[0].stage);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+    loadProgress();
+  }, [loadProgress]);
 
-  if (reader) return <Reader paper={reader} onClose={() => setReader(null)} />;
+  if (reader) return <Reader paper={reader} onClose={() => { setReader(null); loadProgress(); }} />;
 
   const active = stages.find((s) => s.stage === stage);
   const totalPapers = stages.reduce((n, s) => n + s.years.reduce((m, y) => m + y.papers.length, 0), 0);
@@ -99,6 +107,11 @@ export default function PyqPage() {
                       <div>
                         <p className="font-display text-[13px] font-semibold leading-tight text-white drop-shadow">{p.paperName}</p>
                         <p className="mt-0.5 font-mono text-[8.5px] uppercase tracking-widest text-white/55">{p.year} · {Math.round(p.sizeBytes / 1024)}KB</p>
+                        {(byPaper[p.id]?.attempted ?? 0) > 0 && (
+                          <p className="mt-1 flex items-center gap-1 font-mono text-[8.5px] text-emerald-200">
+                            <Check size={9} /> {byPaper[p.id].attempted} attempted · {byPaper[p.id].correct} correct
+                          </p>
+                        )}
                       </div>
                     </div>
                   </button>

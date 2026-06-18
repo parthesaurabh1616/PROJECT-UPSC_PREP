@@ -33,13 +33,24 @@ export default function NcertPage() {
   const [book, setBook]       = useState<BookFull | null>(null);
   const [bookLoading, setBookLoading] = useState(false);
   const [reader, setReader]   = useState<{ chapter: Chapter; bookTitle: string } | null>(null);
+  const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
+  const [byBook, setByBook]   = useState<Record<string, number>>({});
+
+  const loadProgress = useCallback(() => {
+    fetch("/api/ncert/progress").then((r) => r.json())
+      .then((d: { chapterIds?: string[]; byBook?: Record<string, number> }) => {
+        setDoneIds(new Set(d.chapterIds ?? []));
+        setByBook(d.byBook ?? {});
+      }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/ncert").then((r) => r.json()).then((d: { classes: ClassGroup[] }) => {
       setTree(Array.isArray(d.classes) ? d.classes : []);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+    loadProgress();
+  }, [loadProgress]);
 
   const openBook = useCallback(async (id: string) => {
     setBookLoading(true);
@@ -52,7 +63,7 @@ export default function NcertPage() {
 
   // ── Reader overlay (PDF + AI study panel) ──────────────────
   if (reader) {
-    return <Reader chapter={reader.chapter} bookTitle={reader.bookTitle} onClose={() => setReader(null)} />;
+    return <Reader chapter={reader.chapter} bookTitle={reader.bookTitle} onClose={() => { setReader(null); loadProgress(); }} />;
   }
 
   return (
@@ -105,11 +116,18 @@ export default function NcertPage() {
                     <div className={cn("relative flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-xl border border-line bg-gradient-to-br p-4 transition-transform group-hover:-translate-y-1 group-hover:shadow-soft", COVERS[b.coverStyle % 6])}>
                       <div className="flex items-center justify-between">
                         <span className="rounded-md bg-black/30 px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-widest text-white/80">Class {b.klass}</span>
-                        <BookMarked size={14} className="text-white/50" />
+                        {(byBook[b.id] ?? 0) > 0
+                          ? <span className="flex items-center gap-0.5 rounded-md bg-emerald-400/25 px-1.5 py-0.5 font-mono text-[8.5px] text-emerald-100"><Check size={9} />{byBook[b.id]}/{b.chapterCount}</span>
+                          : <BookMarked size={14} className="text-white/50" />}
                       </div>
                       <div>
                         <p className="font-display text-[14px] font-semibold leading-tight text-white drop-shadow">{b.title}</p>
                         <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-white/60">{b.chapterCount} chapters · NCERT</p>
+                        {(byBook[b.id] ?? 0) > 0 && (
+                          <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-black/30">
+                            <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, Math.round(((byBook[b.id] ?? 0) / Math.max(1, b.chapterCount)) * 100))}%` }} />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -140,16 +158,17 @@ export default function NcertPage() {
                 <div className="mt-5 space-y-1">
                   {book.chapters.map((c) => (
                     <button key={c.id} onClick={() => setReader({ chapter: c, bookTitle: book.title })}
-                      className="flex w-full items-center gap-3 rounded-lg border border-line-subtle px-3 py-2.5 text-left transition-colors hover:border-accent/40 hover:bg-surface-2">
+                      className={cn("flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors hover:border-accent/40 hover:bg-surface-2",
+                        doneIds.has(c.id) ? "border-success/40 bg-success/5" : "border-line-subtle")}>
                       <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-md text-[11px] font-semibold",
-                        c.kind === "chapter" ? "bg-accent/15 text-accent" : "bg-surface-2 text-ink-3")}>
-                        {c.kind === "chapter" ? (c.chapterNo ?? c.order) : <FileText size={13} />}
+                        doneIds.has(c.id) ? "bg-success/20 text-success" : c.kind === "chapter" ? "bg-accent/15 text-accent" : "bg-surface-2 text-ink-3")}>
+                        {doneIds.has(c.id) ? <Check size={13} /> : c.kind === "chapter" ? (c.chapterNo ?? c.order) : <FileText size={13} />}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[12.5px] font-medium text-ink">{c.title}</p>
                         {c.kind !== "chapter" && <p className="text-[10px] uppercase tracking-wider text-ink-3">{c.kind}</p>}
                       </div>
-                      <span className="shrink-0 font-mono text-[10px] text-ink-3">{Math.round(c.sizeBytes / 1024)}KB</span>
+                      <span className="shrink-0 font-mono text-[10px] text-ink-3">{doneIds.has(c.id) ? "done" : Math.round(c.sizeBytes / 1024) + "KB"}</span>
                     </button>
                   ))}
                 </div>
