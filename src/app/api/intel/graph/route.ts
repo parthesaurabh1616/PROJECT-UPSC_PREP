@@ -121,9 +121,30 @@ export async function GET(req: NextRequest) {
       subject: c.book.subject, analysed: !!c.aiProcessedAt,
     }));
 
+  // ── Connected PYQ (extracted questions match by topic/keywords/paper) ─
+  const pyqRows = await prisma.pyqQuestion.findMany({
+    where: { paper: { examCode: profile.exam.code } },
+    include: { paper: true },
+    take: 1500,
+  });
+  const pyq = pyqRows
+    .map((q) => {
+      const blob = `${q.text} ${q.topic ?? ""} ${q.subtopic ?? ""} ${q.keywords.join(" ")}`;
+      const kwHit = hits(blob, kws);
+      const paperHit = paper && q.gsMapping.includes(paper) ? 1 : 0;
+      return { q, relevance: kwHit * 2 + paperHit };
+    })
+    .filter((x) => x.relevance > 0)
+    .sort((a, b) => b.relevance - a.relevance || b.q.paper.year - a.q.paper.year)
+    .slice(0, 16)
+    .map(({ q }) => ({
+      id: q.id, number: q.number, text: q.text, marks: q.marks, topic: q.topic,
+      year: q.paper.year, stage: q.paper.stage, paperCode: q.paper.paperCode, paperId: q.paperId,
+    }));
+
   return Response.json({
     node: { code: node.code, title: node.title, titleMr: node.titleMr, paperCode: node.paperCode },
-    counts: { news: news.length, cards: cards.length, notes: notes.length, ncert: ncert.length },
-    news, cards, notes, ncert,
+    counts: { news: news.length, cards: cards.length, notes: notes.length, ncert: ncert.length, pyq: pyq.length },
+    news, cards, notes, ncert, pyq,
   });
 }

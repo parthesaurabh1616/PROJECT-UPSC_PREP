@@ -184,6 +184,48 @@ model NcertChapter {
   @@map("ncert_chapters")
 }
 
+// ══════════════════════════════════════════════════════════════
+//  PYQ Intelligence — past papers normalized + AI-extracted Qs
+// ══════════════════════════════════════════════════════════════
+model PyqPaper {
+  id        String   @id @default(cuid())
+  examCode  String   @default("UPSC")     // UPSC | MPSC
+  stage     String                         // prelims | mains
+  year      Int
+  paperCode String                         // GS-I | GS-II | GS-III | GS-IV | ESSAY | CSAT | ENGLISH | OPTIONAL | LITERATURE
+  paperName String                         // human label
+  pdfPath   String                         // streamed from disk
+  sizeBytes Int      @default(0)
+  questionCount Int  @default(0)
+  extractedAt DateTime?                     // when AI extracted questions
+  createdAt DateTime @default(now())
+
+  questions PyqQuestion[]
+
+  @@unique([examCode, stage, year, paperCode])
+  @@index([examCode, stage, year])
+  @@index([paperCode])
+  @@map("pyq_papers")
+}
+
+model PyqQuestion {
+  id        String   @id @default(cuid())
+  paperId   String
+  paper     PyqPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  number    String                         // "1(a)", "Q12", etc.
+  text      String
+  marks     Int?
+  topic     String?                        // AI topic label
+  subtopic  String?
+  gsMapping String[]                        // ["GS-II"] paper areas
+  keywords  String[]
+  createdAt DateTime @default(now())
+
+  @@index([paperId])
+  @@index([topic])
+  @@map("pyq_questions")
+}
+
 // ── Notes (second brain) ──────────────────────────────────────
 model Note {
   id        String   @id @default(cuid())

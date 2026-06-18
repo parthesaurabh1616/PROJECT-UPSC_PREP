@@ -335,6 +335,79 @@ export async function analyzeChapterPdf(pdfPath: string, examCode: string): Prom
   };
 }
 
+// ── PYQ extraction — Gemini reads a past paper PDF ────────────
+export interface PyqExtractedQ {
+  number: string; text: string; marks: number | null;
+  topic: string; subtopic: string; gsMapping: string[]; keywords: string[];
+}
+
+const PYQ_SYSTEM = (exam: string, stage: string, paper: string) => `You are a ${exam} examiner digitising a past question paper (${stage.toUpperCase()} · ${paper}). Read the PDF and extract every question as structured data.
+
+${stage === "prelims"
+  ? `This is an objective paper — extract each numbered MCQ's stem (you may omit the 4 options for brevity, but keep the question text).`
+  : `This is a descriptive paper — extract each question/sub-question with its marks (10 or 15 typically) and word limit if shown.`}
+
+For EACH question classify it for the ${exam} syllabus.
+
+Respond ONLY with valid JSON:
+{
+  "questions": [
+    {
+      "number": "1" or "1(a)" or "Q5",
+      "text": "the full question text",
+      "marks": 10 (or null for prelims),
+      "topic": "concise topic label (e.g. 'Fundamental Rights')",
+      "subtopic": "narrower theme or empty",
+      "gsMapping": ["GS-II"],
+      "keywords": ["3-5 key terms"]
+    }
+  ]
+}
+Extract ALL questions on the paper. No preamble, JSON only.`;
+
+export async function extractPyqQuestions(
+  pdfPath: string, examCode: string, stage: string, paperName: string,
+): Promise<PyqExtractedQ[]> {
+  if (!process.env.GOOGLE_API_KEY) throw new ChapterAnalysisError("Gemini not configured — PYQ extraction needs Gemini to read the PDF.");
+  const exam = examCode === "MPSC" ? "MPSC" : "UPSC";
+  const buf = fs.readFileSync(pdfPath);
+  if (buf.length / (1024 * 1024) > 18) throw new ChapterAnalysisError("This paper PDF is too large for inline extraction.");
+
+  let raw: string;
+  try {
+    const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent({
+      systemInstruction: PYQ_SYSTEM(exam, stage, paperName),
+      contents: [{ role: "user", parts: [
+        { inlineData: { mimeType: "application/pdf", data: buf.toString("base64") } },
+        { text: "Extract all questions from this paper as JSON." },
+      ] }],
+    });
+    raw = result.response.text();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("429") || /quota/i.test(msg)) throw new ChapterAnalysisError("Gemini's free-tier quota is exhausted — resets daily (midnight PT). Try again later.");
+    throw new ChapterAnalysisError(`Gemini error: ${msg.slice(0, 160)}`);
+  }
+
+  const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  let j: Record<string, unknown>;
+  try { j = JSON.parse(clean); } catch { throw new ChapterAnalysisError("Gemini returned an unparseable response. Try again."); }
+  const arr = Array.isArray(j.questions) ? j.questions : [];
+  return arr
+    .filter((q: unknown): q is PyqExtractedQ => !!q && typeof (q as PyqExtractedQ).text === "string" && (q as PyqExtractedQ).text.length > 5)
+    .slice(0, 120)
+    .map((q: PyqExtractedQ) => ({
+      number: String(q.number ?? "").slice(0, 12),
+      text: String(q.text).trim(),
+      marks: typeof q.marks === "number" ? q.marks : null,
+      topic: String(q.topic ?? "").trim(),
+      subtopic: String(q.subtopic ?? "").trim(),
+      gsMapping: Array.isArray(q.gsMapping) ? q.gsMapping.map(String) : [],
+      keywords: Array.isArray(q.keywords) ? q.keywords.slice(0, 6).map(String) : [],
+    }));
+}
+
 // ── Daily Intelligence Briefing ───────────────────────────────
 export interface BriefingItem { headline: string; why: string; gs: string[]; }
 export interface Briefing { summary: string; items: BriefingItem[]; focus: string[]; }

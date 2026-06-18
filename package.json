@@ -16,7 +16,8 @@
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
-    "ncert:scan": "tsx scripts/ncert-scan.ts"
+    "ncert:scan": "tsx scripts/ncert-scan.ts",
+    "pyq:scan": "tsx scripts/pyq-scan.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

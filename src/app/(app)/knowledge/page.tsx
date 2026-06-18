@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Network, Loader2, Newspaper, RotateCcw, FileText, ExternalLink, ChevronRight, BookOpen } from "lucide-react";
+import { Network, Loader2, Newspaper, RotateCcw, FileText, ExternalLink, ChevronRight, BookOpen, Target } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -9,11 +9,12 @@ interface Node { id: string; code: string; title: string; titleMr?: string | nul
 interface Paper { paperCode: string; nodes: Node[]; }
 interface Graph {
   node: { code: string; title: string; titleMr?: string | null; paperCode?: string | null };
-  counts: { news: number; cards: number; notes: number; ncert: number };
+  counts: { news: number; cards: number; notes: number; ncert: number; pyq: number };
   news: { id: string; headline: string; whyInNews: string | null; gsMapping: string[]; source: string | null; sourceUrl: string | null; importanceScore: number; publishedAt: string }[];
   cards: { id: string; front: string; back: string; subject: string | null }[];
   notes: { id: string; title: string; subject: string | null }[];
   ncert: { id: string; title: string; book: string; klass: number; subject: string; analysed: boolean }[];
+  pyq: { id: string; number: string; text: string; marks: number | null; topic: string | null; year: number; stage: string; paperCode: string; paperId: string }[];
 }
 
 export default function KnowledgePage() {
@@ -95,6 +96,7 @@ export default function KnowledgePage() {
                   </div>
                   <div className="flex gap-3 text-center">
                     <Stat n={graph.counts.news} label="News" />
+                    <Stat n={graph.counts.pyq ?? 0} label="PYQs" />
                     <Stat n={graph.counts.ncert} label="NCERT" />
                     <Stat n={graph.counts.cards} label="Cards" />
                     <Stat n={graph.counts.notes} label="Notes" />
@@ -115,6 +117,23 @@ export default function KnowledgePage() {
                         {e.gsMapping.map((g) => <Chip key={g} tone="accent">{g}</Chip>)}
                         {e.sourceUrl && <a href={e.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-[10.5px] text-accent hover:underline">{e.source}<ExternalLink size={9} /></a>}
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </Section>
+
+              {/* Linked PYQs — this topic, asked in real papers */}
+              <Section icon={<Target size={14} className="text-rose-400" />} title="Asked in Past Papers" count={graph.pyq?.length ?? 0}>
+                {(graph.pyq ?? []).map((q) => (
+                  <div key={q.id} className="border-b border-line-subtle py-2.5 last:border-0">
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5 shrink-0 rounded bg-rose-400/15 px-1.5 py-0.5 font-mono text-[9.5px] font-semibold text-rose-300">{q.year}</span>
+                      <p className="text-[12.5px] leading-snug text-ink">{q.text}</p>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 pl-1">
+                      <span className="font-mono text-[9.5px] uppercase tracking-wider text-ink-3">{q.stage} · {q.paperCode}</span>
+                      {q.marks != null && <Chip tone="accent">{q.marks}m</Chip>}
+                      {q.topic && <span className="text-[10.5px] text-ink-3">{q.topic}</span>}
                     </div>
                   </div>
                 ))}
