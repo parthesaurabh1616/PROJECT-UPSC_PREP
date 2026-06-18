@@ -5,7 +5,7 @@ import { Settings as SettingsIcon, Loader2, Check, CalendarClock } from "lucide-
 import { Card } from "@/components/ui";
 
 interface Dates {
-  examCode: string; shortName: string; targetYear: number | null;
+  examCode: string; shortName: string; targetYear: number | null; targetMarks: number | null;
   prelimsDate: string | null; mainsDate: string | null; interviewDate: string | null;
 }
 
@@ -16,13 +16,14 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
-  const [form, setForm]     = useState({ targetYear: "", prelimsDate: "", mainsDate: "", interviewDate: "" });
+  const [form, setForm]     = useState({ targetYear: "", targetMarks: "", prelimsDate: "", mainsDate: "", interviewDate: "" });
 
   useEffect(() => {
     fetch("/api/exams/dates").then((r) => r.json()).then((d: Dates) => {
       setData(d);
       setForm({
         targetYear: d.targetYear ? String(d.targetYear) : "",
+        targetMarks: d.targetMarks ? String(d.targetMarks) : "",
         prelimsDate: toInput(d.prelimsDate), mainsDate: toInput(d.mainsDate), interviewDate: toInput(d.interviewDate),
       });
     }).catch(() => {}).finally(() => setLoading(false));
@@ -35,6 +36,7 @@ export default function SettingsPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetYear: form.targetYear ? Number(form.targetYear) : null,
+          targetMarks: form.targetMarks ? Number(form.targetMarks) : null,
           prelimsDate: form.prelimsDate || null,
           mainsDate: form.mainsDate || null,
           interviewDate: form.interviewDate || null,
@@ -66,6 +68,13 @@ export default function SettingsPage() {
             <input type="number" min={2024} max={2035} value={form.targetYear}
               onChange={(e) => setForm((f) => ({ ...f, targetYear: e.target.value }))}
               placeholder="e.g. 2027"
+              className="w-40 rounded-lg border border-line bg-surface-2 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent/50" />
+          </Field>
+
+          <Field label="Target final marks" hint="Your goal total (AIR-1 band is ~1045–1126). Used by the Command Center.">
+            <input type="number" min={700} max={2025} value={form.targetMarks}
+              onChange={(e) => setForm((f) => ({ ...f, targetMarks: e.target.value }))}
+              placeholder="e.g. 1100"
               className="w-40 rounded-lg border border-line bg-surface-2 px-3 py-2 text-[13px] text-ink outline-none focus:border-accent/50" />
           </Field>
 

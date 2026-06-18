@@ -27,6 +27,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     section: "Workspace",
     items: [
       { label: "Dashboard",       href: "/command",        icon: LayoutDashboard },
+      { label: "Command Center",  href: "/exam",            icon: Command },
       { label: "AI Mentor",       href: "/mentor",          icon: Sparkles, badge: "AI" },
       { label: "Notes",           href: "/notes",           icon: FileText },
       { label: "Current Affairs", href: "/current-affairs", icon: Newspaper },
@@ -42,6 +43,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
 
 const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/command":         { eyebrow: "COMMAND CENTER",    title: "Dashboard" },
+  "/exam":            { eyebrow: "EXAM INTELLIGENCE",  title: "UPSC Command Center" },
   "/mentor":          { eyebrow: "AI MENTOR",          title: "Strategist" },
   "/notes":           { eyebrow: "KNOWLEDGE VAULT",    title: "Notes" },
   "/current-affairs": { eyebrow: "INTELLIGENCE FEED",  title: "Current Affairs" },
