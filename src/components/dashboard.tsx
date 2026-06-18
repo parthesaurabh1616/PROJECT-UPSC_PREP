@@ -20,8 +20,13 @@ import { cn } from "@/lib/utils";
    fabricated value.
    ════════════════════════════════════════════════════════════ */
 
+interface Milestone { date: string | null; days: number | null; estimate: boolean }
+
 interface Overview {
-  exam: { code: string; shortName: string; targetYear: number | null; prelimsEstimate: string | null; daysToPrelims: number | null };
+  exam: {
+    code: string; shortName: string; targetYear: number | null; prelimsEstimate: string | null; daysToPrelims: number | null;
+    milestones: { prelims: Milestone; mains: Milestone; interview: Milestone };
+  };
   streak: { streak: number; longest: number; active30: number; lastActive: string | null };
   studyToday: { minutes: number; sessions: number };
   thisWeek: Record<string, number>;
@@ -79,6 +84,9 @@ export function Dashboard() {
         <DeepWorkTimer onLogged={reload} todayMinutes={data.studyToday.minutes} />
       </div>
 
+      {/* COUNTDOWN — exact when set, else estimate (clearly marked) */}
+      <div className="animate-fade-up" style={{ animationDelay: "100ms" }}><CountdownBlock d={data} /></div>
+
       {/* B. WHERE I STAND — coverage (honestly labelled) */}
       <div className="grid animate-fade-up grid-cols-[1fr_1fr] gap-5" style={{ animationDelay: "120ms" }}>
         <CoverageBlock d={data} />
@@ -128,6 +136,35 @@ function Hero({ d }: { d: Overview }) {
         </p>
       )}
     </div>
+  );
+}
+
+/* ── COUNTDOWN ────────────────────────────────────────── */
+function CountdownBlock({ d }: { d: Overview }) {
+  const m = d.exam.milestones;
+  const cells = [
+    { label: "Prelims", ms: m.prelims, tint: "var(--accent)" },
+    { label: "Mains", ms: m.mains, tint: "var(--accent-2)" },
+    { label: "Interview", ms: m.interview, tint: "var(--analyt)" },
+  ];
+  const anyExact = cells.some((c) => !c.ms.estimate && c.ms.days != null);
+  const fmt = (s: string | null) => s ? new Date(s).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
+  return (
+    <GlowCard>
+      <SectionHeader title="Time until the examination" icon={<CalendarClock size={15} className="text-accent" />}
+        sub={anyExact ? `${d.exam.shortName} · exact dates you set` : `${d.exam.shortName} · estimated from your target year — set exact dates for precision`}
+        action={<Link href="/settings" className="rounded-lg border border-line px-2.5 py-1 text-[11px] text-ink-2 hover:border-accent/40 hover:text-ink">Set dates</Link>} />
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        {cells.map((c) => (
+          <div key={c.label} className="relative overflow-hidden rounded-xl border border-line bg-bg-subtle/60 p-4 text-center">
+            <div aria-hidden className="pointer-events-none absolute inset-0 opacity-30" style={{ background: `radial-gradient(circle at 50% 0%, rgb(${c.tint} / 0.22), transparent 60%)` }} />
+            <p className="relative font-display text-[38px] font-semibold leading-none tracking-tighter text-ink">{c.ms.days ?? "—"}</p>
+            <p className="relative mt-2 font-mono text-[9.5px] uppercase tracking-[0.22em] text-ink-3">{c.label}{c.ms.estimate && c.ms.days != null ? " ~est" : ""}</p>
+            <p className="relative mt-1 text-[10.5px] text-ink-2">{fmt(c.ms.date)}</p>
+          </div>
+        ))}
+      </div>
+    </GlowCard>
   );
 }
 

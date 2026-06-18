@@ -27,6 +27,7 @@ export default function CurrentAffairsPage() {
   const [syncMsg, setSyncMsg]   = useState("");
   const [selected, setSelected] = useState<Article | null>(null);
   const [saved, setSaved]       = useState<Set<string>>(new Set());
+  const [read, setRead]         = useState<Set<string>>(new Set());
   const [tab, setTab]           = useState<CatKey>("all");
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const initialised = useRef(false);
@@ -75,8 +76,32 @@ export default function CurrentAffairsPage() {
     return () => clearInterval(id);
   }, [load, sync]);
 
+  // Load existing read-receipts once.
+  useEffect(() => {
+    fetch("/api/ca/read").then((r) => r.json())
+      .then((d: { read?: string[] }) => { if (Array.isArray(d.read)) setRead(new Set(d.read)); })
+      .catch(() => {});
+  }, []);
+
   const toggleSave = (id: string) =>
     setSaved((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  // Opening an article = reading it → real receipt + CA_READ activity.
+  const markRead = useCallback((id: string) => {
+    setRead((s) => {
+      if (s.has(id)) return s;
+      const n = new Set(s); n.add(id);
+      fetch("/api/ca/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ affairId: id }) }).catch(() => {});
+      return n;
+    });
+  }, []);
+
+  const open = (a: Article) => {
+    const opening = selected?.id !== a.id;
+    setSelected(opening ? a : null);
+    if (opening) markRead(a.id);
+  };
+  const unread = articles.filter((a) => !read.has(a.id)).length;
 
   const visible = tab === "all" ? articles : articles.filter((a) => (a.category ?? "news") === tab);
   const high    = articles.filter((a) => a.priority === "high").length;
@@ -106,7 +131,7 @@ export default function CurrentAffairsPage() {
             <span className="flex items-center gap-1 text-success">
               <Radio size={11} className="animate-pulse" /> LIVE
             </span>
-            · {articles.length} articles · {high} high-priority
+            · {articles.length} articles · {unread} unread · {high} high-priority
             {lastSync && <span>· synced {lastSync.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>}
           </p>
         </div>
@@ -164,8 +189,9 @@ export default function CurrentAffairsPage() {
             <ArticleCard key={a.id} article={a}
               active={selected?.id === a.id}
               saved={saved.has(a.id)}
+              unread={!read.has(a.id)}
               onSave={() => toggleSave(a.id)}
-              onClick={() => setSelected(selected?.id === a.id ? null : a)}
+              onClick={() => open(a)}
             />
           ))}
         </div>
@@ -290,17 +316,18 @@ const CAT_BADGE: Record<string, { label: string; cls: string }> = {
   news:          { label: "News",        cls: "bg-surface-2 text-ink-3 border-line" },
 };
 
-function ArticleCard({ article: a, active, saved, onSave, onClick }: {
-  article: Article; active: boolean; saved: boolean;
+function ArticleCard({ article: a, active, saved, unread, onSave, onClick }: {
+  article: Article; active: boolean; saved: boolean; unread: boolean;
   onSave: () => void; onClick: () => void;
 }) {
   const badge = CAT_BADGE[a.category ?? "news"] ?? CAT_BADGE.news;
   return (
     <Card id={`a-${a.id}`} hover onClick={onClick}
-      className={cn("cursor-pointer p-5 transition-all", active && "border-accent/50 bg-surface-2")}>
+      className={cn("cursor-pointer p-5 transition-all", active && "border-accent/50 bg-surface-2", !unread && "opacity-70")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-1.5 flex items-center gap-1.5">
+            {unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" title="Unread" />}
             <span className={cn("rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest", badge.cls)}>
               {badge.label}
             </span>

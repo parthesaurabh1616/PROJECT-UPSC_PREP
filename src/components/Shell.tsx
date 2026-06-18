@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network, BookOpen, Target,
+  TrendingUp, Radio, Network, BookOpen, Target, Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -50,6 +50,7 @@ const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/ncert":           { eyebrow: "DIGITAL LIBRARY",    title: "NCERT Library" },
   "/pyq":             { eyebrow: "PYQ INTELLIGENCE",   title: "Past Papers Decoded" },
   "/revision":        { eyebrow: "REVISION ENGINE",    title: "Spaced Repetition" },
+  "/settings":        { eyebrow: "CONFIGURATION",       title: "Settings" },
   "/library":         { eyebrow: "ARCHIVE",            title: "Library" },
 };
 
@@ -253,6 +254,10 @@ export function Shell({ children }: { children: ReactNode }) {
         </button>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          <Link href="/settings" aria-label="Settings"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-surface/60 text-ink-2 backdrop-blur transition-colors hover:border-accent/40 hover:text-ink">
+            <Settings size={14} />
+          </Link>
           <IconBtn label="Toggle theme" onClick={toggle}>
             {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           </IconBtn>

@@ -100,19 +100,29 @@ export async function GET() {
     .filter((f) => f.topic && f._count._all >= 2)
     .map((f) => ({ topic: f.topic as string, count: f._count._all }));
 
-  // ── Exam countdown (estimate, clearly labelled) ──────────────────
-  let daysToPrelims: number | null = null;
-  let prelimsEstimate: string | null = null;
-  if (targetYear) {
-    // UPSC Prelims typically the last Sunday of May; MPSC varies — estimate.
-    const est = new Date(targetYear, 4, 25); // 25 May of target year
-    prelimsEstimate = est.toISOString().slice(0, 10);
-    daysToPrelims = Math.ceil((est.getTime() - Date.now()) / 86400000);
-    if (daysToPrelims < 0) daysToPrelims = null; // past — don't show a stale countdown
+  // ── Exam countdown — exact (user-set) when available, else estimate ─
+  const daysTo = (d: Date) => { const n = Math.ceil((d.getTime() - Date.now()) / 86400000); return n < 0 ? null : n; };
+  const milestone = (exact: Date | null, estMonth: number, estDay: number) => {
+    if (exact) return { date: exact.toISOString().slice(0, 10), days: daysTo(exact), estimate: false };
+    if (targetYear) { const e = new Date(targetYear, estMonth, estDay); return { date: e.toISOString().slice(0, 10), days: daysTo(e), estimate: true }; }
+    return { date: null, days: null, estimate: true };
+  };
+  // UPSC typical calendar: Prelims ~late May, Mains ~mid-Sep, Interview ~Jan(+1).
+  const prelims = milestone(profile?.prelimsDate ?? null, 4, 25);
+  const mains = milestone(profile?.mainsDate ?? null, 8, 20);
+  const interview = milestone(profile?.interviewDate ?? null, targetYear ? 0 : 0, 15);
+  if (profile?.interviewDate == null && targetYear) { // interview is next year
+    const e = new Date(targetYear + 1, 0, 15); interview.date = e.toISOString().slice(0, 10); interview.days = daysTo(e);
   }
+  const daysToPrelims = prelims.days;
+  const prelimsEstimate = prelims.estimate ? prelims.date : null;
 
   return Response.json({
-    exam: { code: examCode, shortName: profile?.exam.shortName ?? "UPSC CSE", targetYear, prelimsEstimate, daysToPrelims },
+    exam: {
+      code: examCode, shortName: profile?.exam.shortName ?? "UPSC CSE", targetYear,
+      prelimsEstimate, daysToPrelims,
+      milestones: { prelims, mains, interview },
+    },
     streak,
     studyToday,
     thisWeek,

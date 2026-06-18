@@ -85,6 +85,9 @@ model UserExamProfile {
   isPrimary       Boolean  @default(false)
   optionalSubject String?
   targetYear      Int?
+  prelimsDate     DateTime?                  // exact dates (user-set) → precise countdown
+  mainsDate       DateTime?
+  interviewDate   DateTime?
   language        String   @default("en") // preferred UI/AI language for this exam
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
