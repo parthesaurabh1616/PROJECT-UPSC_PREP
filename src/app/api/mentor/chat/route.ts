@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma, ensureDemoUser, DEMO_USER_ID } from "@/lib/db";
 import { streamChat, DEFAULT_MODEL, MODELS, mentorSystemFor, type ModelId } from "@/lib/ai";
 import { getActiveProfile } from "@/lib/exam";
+import { gatherMentorContext } from "@/lib/mentor-context";
 
 const GROQ_FALLBACK: ModelId = "llama-3.3-70b-versatile";
 
@@ -10,13 +11,20 @@ export async function POST(req: NextRequest) {
 
   // Resolve mentor persona from the active exam (UPSC vs MPSC/Maharashtra).
   const activeProfile = await getActiveProfile().catch(() => null);
-  const systemPrompt = mentorSystemFor(activeProfile?.exam.code);
+  const examCode = activeProfile?.exam.code ?? "UPSC";
+  const basePrompt = mentorSystemFor(activeProfile?.exam.code);
 
   const { conversationId, message, modelId } = await req.json() as {
     conversationId: string;
     message: string;
     modelId?: ModelId;
   };
+
+  // Retrieve real platform intelligence relevant to this question and
+  // graft it onto the system prompt so the model grounds its answer in
+  // the student's actual NCERT/PYQ/CA/notes/progress, not model memory.
+  const intel = await gatherMentorContext(message, examCode).catch(() => "");
+  const systemPrompt = basePrompt + intel;
 
   let selectedModel: ModelId = modelId ?? DEFAULT_MODEL;
   if (!MODELS[selectedModel].available()) {
