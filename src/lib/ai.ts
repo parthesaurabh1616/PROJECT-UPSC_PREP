@@ -313,6 +313,31 @@ export async function evaluateMainsAnswer(input: {
   throw new ChapterAnalysisError("AI evaluation is unavailable right now (no provider configured or both throttled). Please try again shortly.");
 }
 
+// ── Weekly review — grounded coach summary (numbers given) ────
+export async function summariseWeek(facts: string, examShort: string): Promise<string> {
+  const sys = `You are a calm, exacting ${examShort} coach writing a weekly review. You are given the student's REAL numbers for the week. Write 2-3 short sentences: an honest read of the week (acknowledge what moved and what didn't) and the single most important thing to fix next week. Use ONLY the numbers given — never invent figures, scores or claims. Plain prose, no markdown, no headings, no flattery.`;
+  const userMsg = `This week's real numbers:\n${facts}\n\nWrite the weekly read.`;
+  // Groq first (fast); Gemini fallback.
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const res = await getGroq().chat.completions.create({
+        model: "llama-3.3-70b-versatile", max_tokens: 280, temperature: 0.5,
+        messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }],
+      });
+      const t = res.choices[0]?.message?.content?.trim();
+      if (t) return t;
+    } catch { /* fall through */ }
+  }
+  if (process.env.GOOGLE_API_KEY) {
+    try {
+      const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction: sys });
+      const r = await model.generateContent(userMsg);
+      return r.response.text().trim();
+    } catch { /* */ }
+  }
+  return "";
+}
+
 // ── Prelims MCQ generation — exam-standard, factual ───────────
 export interface GeneratedMcq {
   question: string; options: string[]; answerIndex: number; explanation: string; difficulty: string;
