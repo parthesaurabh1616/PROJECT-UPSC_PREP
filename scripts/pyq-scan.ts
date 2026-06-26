@@ -13,25 +13,45 @@ import path from "path";
 const prisma = new PrismaClient();
 const ROOT = "C:\\Users\\saura\\OneDrive\\Desktop\\UPSC PREP\\PYQ'S";
 
-// ── Extract a paper's roman numeral (I/II/III/IV), format-agnostic ─
-//    Handles "GenStud_III", "PAPER-II", "PAPER I", "P_II", etc.
+// ── Extract a paper's number (I/II/III/IV), format-agnostic ───
+//    Handles "GenStud_III", "PAPER-II", "PAPER I", "P_II", "_I_0",
+//    and bare numeric suffixes like "SOCIOLOGY1" / "SOCIOLOGY2".
 function romanPart(f: string): "I" | "II" | "III" | "IV" {
   const near = f.match(/(?:PAPER|GENSTUD|GEN[\s_-]*STUD|GENERAL[\s_-]*STUDIES|P)[\s_-]*(IV|III|II|I)(?![A-Z])/);
   if (near) return near[1] as "I" | "II" | "III" | "IV";
   const loose = f.match(/[\s_-](IV|III|II|I)(?=[\s_.-]|$)/);
-  return (loose?.[1] as "I" | "II" | "III" | "IV") ?? "I";
+  if (loose) return loose[1] as "I" | "II" | "III" | "IV";
+  const digit = f.match(/(?<![0-9])([1-4])(?![0-9])/);   // SOCIOLOGY1 → I, SOCIOLOGY2 → II
+  if (digit) return (["I", "II", "III", "IV"][parseInt(digit[1], 10) - 1]) as "I" | "II" | "III" | "IV";
+  return "I";
 }
 
+// ── Optional subjects — each gets its OWN code so they never collapse.
+const OPTIONALS: { re: RegExp; slug: string; name: string }[] = [
+  { re: /SOCIOLOG/, slug: "SOC", name: "Sociology" },
+  { re: /PSIR|POLITICAL[\s_-]*SCIENCE|POLI[\s_-]*SCI|POLITICAL.*REL|INTERN\w*[\s_-]*REL/, slug: "PSIR", name: "Political Science & IR" },
+  { re: /PUBLIC[\s_-]*ADMIN|PUB[\s_-]*AD\b/, slug: "PUBAD", name: "Public Administration" },
+  { re: /ANTHROP/, slug: "ANTHRO", name: "Anthropology" },
+  { re: /GEOGRAPH/, slug: "GEOG", name: "Geography" },
+  { re: /PHILOSOPH/, slug: "PHIL", name: "Philosophy" },
+  { re: /PSYCHOLOG/, slug: "PSY", name: "Psychology" },
+  { re: /\bHISTORY\b/, slug: "HIST", name: "History" },
+  { re: /ECONOMIC/, slug: "ECON", name: "Economics" },
+];
+
 /**
- * Decode the Mains paper from a UPSC filename — format-agnostic.
- * Works for the underscore codes (2016-2024, "QP_CSM_2024_GenStud_I")
- * AND the hyphenated 2025+ names ("GENERAL-STUDIES-PAPER I-QP-CSM-25").
+ * Decode the Mains paper from a UPSC filename — format-agnostic across
+ * every naming convention 2016→2025 (underscore codes, hyphenated names,
+ * bare numeric suffixes, spacing quirks and typos). Optional subjects and
+ * language-literature each get a subject-specific code so multiple
+ * optionals coexist instead of collapsing into one slot.
  */
 function decodeMainsPaper(file: string): { code: string; name: string } | null {
   const f = file.toUpperCase();
   const isGS = /GENSTUD|GEN[\s_-]*STUD|GENERAL[\s_-]*STUDIES/.test(f);
-  const isLit = /LIT(ERATURE)?/.test(f) || /_LIT|P_II_LITE|P_I_LITE/.test(f);
-  const isComp = /COMP(ULSORY)?|_COMP/.test(f);
+  // NB: must NOT match "POLITICAL" (which contains the substring "LIT").
+  const isLit = /LITERATURE/.test(f) || /[\s_-]LITE?[\s_.-]/.test(f);
+  const isComp = (/COMP(ULSORY)?|_COMP/.test(f)) && !isLit;
 
   if (f.includes("ESSAY")) return { code: "ESSAY", name: "Essay" };
 
@@ -41,27 +61,41 @@ function decodeMainsPaper(file: string): { code: string; name: string } | null {
     return { code: `GS-${r}`, name: names[r] };
   }
 
-  // Compulsory qualifying language papers (handle both "ENG_COMP" and "ENGLISH-COMPULSORY")
-  if (isComp && !isLit) {
+  // Compulsory qualifying languages ("ENG_COMP" or "ENGLISH-COMPULSORY")
+  if (isComp) {
     if (/ENG/.test(f)) return { code: "ENGLISH", name: "English (Qualifying)" };
     if (/HINDI|HN_COMP|\bHN[\s_-]/.test(f)) return { code: "HINDI", name: "Hindi (Qualifying)" };
     if (/MARA/.test(f)) return { code: "MARATHI", name: "Marathi (Qualifying)" };
     return { code: "LANG", name: "Compulsory Language" };
   }
 
-  // Literature (optional literature subjects)
+  // Language-literature optionals — distinct per language.
   if (isLit) {
     const r = romanPart(f);
-    return { code: `LITERATURE-${r}`, name: `Literature Paper ${r}` };
+    const lang = /ENG/.test(f) ? { s: "ENG", n: "English" }
+      : (/HINDI|\bHN[\s_-]/.test(f)) ? { s: "HINDI", n: "Hindi" }
+      : /MARA/.test(f) ? { s: "MARATHI", n: "Marathi" } : null;
+    return lang
+      ? { code: `LIT-${lang.s}-${r}`, name: `${lang.n} Literature — Paper ${r}` }
+      : { code: `LITERATURE-${r}`, name: `Literature — Paper ${r}` };
   }
 
-  // Optional subject papers (e.g. "PUBLIC-ADMINISTRATION-PAPER-I")
+  // Optional subjects — known list first (subject-specific code).
+  for (const o of OPTIONALS) {
+    if (o.re.test(f)) {
+      const r = romanPart(f);
+      return { code: `OPTIONAL-${o.slug}-${r}`, name: `${o.name} — Paper ${r}` };
+    }
+  }
+
+  // Generic optional with an explicit PAPER marker (unknown subject).
   if (/PAPER[\s_-]*(IV|III|II|I)/.test(f)) {
     const r = romanPart(f);
-    const m = file.match(/CSM-\d+-([A-Za-z][A-Za-z-]+?)-PAPER/i)        // QP-CSM-24-PUBLIC-ADMINISTRATION-PAPER-I
-          ?? file.match(/^([A-Za-z][A-Za-z-]+?)-PAPER/i);                // PUBLIC-ADMINISTRATION-PAPER-I-QP-CSM-25
-    const subj = m ? m[1].replace(/-/g, " ").trim() : "Optional";
-    return { code: `OPTIONAL-${r}`, name: `${titleCase(subj)} — Paper ${r}` };
+    const m = file.match(/CSM-\d+-([A-Za-z][A-Za-z -]+?)-PAPER/i)        // QP-CSM-24-<SUBJECT>-PAPER-I
+          ?? file.match(/^([A-Za-z][A-Za-z -]+?)-PAPER/i);                // <SUBJECT>-PAPER-I-QP-CSM-25
+    const subjName = m ? titleCase(m[1].replace(/-/g, " ").trim()) : "Optional";
+    const slug = (m ? m[1].replace(/[^A-Za-z]/g, "") : "GEN").slice(0, 8).toUpperCase() || "GEN";
+    return { code: `OPTIONAL-${slug}-${r}`, name: `${subjName} — Paper ${r}` };
   }
 
   return { code: "OTHER", name: titleCase(file.replace(/\.pdf$/i, "").replace(/[_-]/g, " ")) };
