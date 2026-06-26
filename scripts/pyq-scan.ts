@@ -89,10 +89,11 @@ function decodeMainsPaper(file: string): { code: string; name: string } | null {
   }
 
   // Generic optional with an explicit PAPER marker (unknown subject).
+  // Subject = text before "PAPER", allowing space, hyphen or underscore.
   if (/PAPER[\s_-]*(IV|III|II|I)/.test(f)) {
     const r = romanPart(f);
-    const m = file.match(/CSM-\d+-([A-Za-z][A-Za-z -]+?)-PAPER/i)        // QP-CSM-24-<SUBJECT>-PAPER-I
-          ?? file.match(/^([A-Za-z][A-Za-z -]+?)-PAPER/i);                // <SUBJECT>-PAPER-I-QP-CSM-25
+    const m = file.match(/CSM-?\d+-([A-Za-z][A-Za-z -]+?)[\s_-]PAPER/i)   // QP-CSM-24-<SUBJECT>-PAPER-I
+          ?? file.match(/^([A-Za-z][A-Za-z -]+?)[\s_-]PAPER/i);           // "<SUBJECT> Paper-I" / "<SUBJECT>-PAPER-I"
     const subjName = m ? titleCase(m[1].replace(/-/g, " ").trim()) : "Optional";
     const slug = (m ? m[1].replace(/[^A-Za-z]/g, "") : "GEN").slice(0, 8).toUpperCase() || "GEN";
     return { code: `OPTIONAL-${slug}-${r}`, name: `${subjName} — Paper ${r}` };
