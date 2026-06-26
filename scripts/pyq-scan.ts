@@ -13,29 +13,57 @@ import path from "path";
 const prisma = new PrismaClient();
 const ROOT = "C:\\Users\\saura\\OneDrive\\Desktop\\UPSC PREP\\PYQ'S";
 
-// ── Decode the Mains paper from a UPSC filename ───────────────
+// ── Extract a paper's roman numeral (I/II/III/IV), format-agnostic ─
+//    Handles "GenStud_III", "PAPER-II", "PAPER I", "P_II", etc.
+function romanPart(f: string): "I" | "II" | "III" | "IV" {
+  const near = f.match(/(?:PAPER|GENSTUD|GEN[\s_-]*STUD|GENERAL[\s_-]*STUDIES|P)[\s_-]*(IV|III|II|I)(?![A-Z])/);
+  if (near) return near[1] as "I" | "II" | "III" | "IV";
+  const loose = f.match(/[\s_-](IV|III|II|I)(?=[\s_.-]|$)/);
+  return (loose?.[1] as "I" | "II" | "III" | "IV") ?? "I";
+}
+
+/**
+ * Decode the Mains paper from a UPSC filename — format-agnostic.
+ * Works for the underscore codes (2016-2024, "QP_CSM_2024_GenStud_I")
+ * AND the hyphenated 2025+ names ("GENERAL-STUDIES-PAPER I-QP-CSM-25").
+ */
 function decodeMainsPaper(file: string): { code: string; name: string } | null {
   const f = file.toUpperCase();
+  const isGS = /GENSTUD|GEN[\s_-]*STUD|GENERAL[\s_-]*STUDIES/.test(f);
+  const isLit = /LIT(ERATURE)?/.test(f) || /_LIT|P_II_LITE|P_I_LITE/.test(f);
+  const isComp = /COMP(ULSORY)?|_COMP/.test(f);
+
   if (f.includes("ESSAY")) return { code: "ESSAY", name: "Essay" };
-  if (f.includes("GENSTUD_I_") || f.includes("GENSTUD_I.") || /GEN.?STUD.?_?I[_\.]/.test(f) && !f.includes("II") && !f.includes("III") && !f.includes("IV")) return { code: "GS-I", name: "General Studies I" };
-  if (f.includes("GENSTUD_IV")) return { code: "GS-IV", name: "General Studies IV (Ethics)" };
-  if (f.includes("GENSTUD_III")) return { code: "GS-III", name: "General Studies III" };
-  if (f.includes("GENSTUD_II")) return { code: "GS-II", name: "General Studies II" };
-  if (f.includes("GENSTUD_I")) return { code: "GS-I", name: "General Studies I" };
-  if (f.includes("ENG_COMP")) return { code: "ENGLISH", name: "English (Qualifying)" };
-  if (f.includes("HN_COMP")) return { code: "HINDI", name: "Hindi (Qualifying)" };
-  if (f.includes("MARA_COMP")) return { code: "MARATHI", name: "Marathi (Qualifying)" };
-  if (f.includes("LITE") || f.includes("_LIT")) {
-    const part = f.includes("P_II") || f.includes("PAPER-II") || f.includes("PAPER_II") ? "II" : "I";
-    return { code: `LITERATURE-${part}`, name: `Literature Paper ${part}` };
+
+  if (isGS) {
+    const r = romanPart(f);
+    const names: Record<string, string> = { I: "General Studies I", II: "General Studies II", III: "General Studies III", IV: "General Studies IV (Ethics)" };
+    return { code: `GS-${r}`, name: names[r] };
   }
-  if (f.includes("PAPER-I") || f.includes("PAPER_I") || f.includes("PAPER-II")) {
-    const part = f.includes("PAPER-II") || f.includes("PAPER_II") ? "II" : "I";
-    // optional subject name (best effort from filename)
-    const m = file.match(/CSM-\d+-([A-Z-]+?)-PAPER/i);
+
+  // Compulsory qualifying language papers (handle both "ENG_COMP" and "ENGLISH-COMPULSORY")
+  if (isComp && !isLit) {
+    if (/ENG/.test(f)) return { code: "ENGLISH", name: "English (Qualifying)" };
+    if (/HINDI|HN_COMP|\bHN[\s_-]/.test(f)) return { code: "HINDI", name: "Hindi (Qualifying)" };
+    if (/MARA/.test(f)) return { code: "MARATHI", name: "Marathi (Qualifying)" };
+    return { code: "LANG", name: "Compulsory Language" };
+  }
+
+  // Literature (optional literature subjects)
+  if (isLit) {
+    const r = romanPart(f);
+    return { code: `LITERATURE-${r}`, name: `Literature Paper ${r}` };
+  }
+
+  // Optional subject papers (e.g. "PUBLIC-ADMINISTRATION-PAPER-I")
+  if (/PAPER[\s_-]*(IV|III|II|I)/.test(f)) {
+    const r = romanPart(f);
+    const m = file.match(/CSM-\d+-([A-Za-z][A-Za-z-]+?)-PAPER/i)        // QP-CSM-24-PUBLIC-ADMINISTRATION-PAPER-I
+          ?? file.match(/^([A-Za-z][A-Za-z-]+?)-PAPER/i);                // PUBLIC-ADMINISTRATION-PAPER-I-QP-CSM-25
     const subj = m ? m[1].replace(/-/g, " ").trim() : "Optional";
-    return { code: `OPTIONAL-${part}`, name: `${titleCase(subj)} — Paper ${part}` };
+    return { code: `OPTIONAL-${r}`, name: `${titleCase(subj)} — Paper ${r}` };
   }
+
   return { code: "OTHER", name: titleCase(file.replace(/\.pdf$/i, "").replace(/[_-]/g, " ")) };
 }
 
@@ -44,13 +72,24 @@ function titleCase(s: string): string {
 }
 
 async function main() {
-  console.log("Wiping existing PYQ tables…");
-  await prisma.pyqQuestion.deleteMany();
-  await prisma.pyqPaper.deleteMany();
-
+  // Non-destructive: upsert papers (preserves already-extracted questions on
+  // matched rows), track which (stage,year,paperCode) we actually produced,
+  // then prune only the rows we no longer produce (stale / mis-decoded).
+  const seen = new Set<string>();
+  const key = (stage: string, year: number, code: string) => `${stage}|${year}|${code}`;
   let papers = 0;
 
-  // ── MAINS: UPSC MAINS / MAINS YYYY / <16 paper PDFs> ─────────
+  const upsert = async (stage: "mains" | "prelims", year: number, code: string, name: string, full: string) => {
+    await prisma.pyqPaper.upsert({
+      where: { examCode_stage_year_paperCode: { examCode: "UPSC", stage, year, paperCode: code } },
+      update: { paperName: name, pdfPath: full, sizeBytes: fs.statSync(full).size },
+      create: { examCode: "UPSC", stage, year, paperCode: code, paperName: name, pdfPath: full, sizeBytes: fs.statSync(full).size },
+    });
+    seen.add(key(stage, year, code));
+    papers++;
+  };
+
+  // ── MAINS: UPSC MAINS / MAINS YYYY / <paper PDFs> ────────────
   const mainsRoot = path.join(ROOT, "UPSC MAINS");
   if (fs.existsSync(mainsRoot)) {
     for (const yrDir of fs.readdirSync(mainsRoot, { withFileTypes: true }).filter((e) => e.isDirectory())) {
@@ -59,14 +98,8 @@ async function main() {
       const dir = path.join(mainsRoot, yrDir.name);
       for (const file of fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".pdf"))) {
         const dec = decodeMainsPaper(file);
-        if (!dec) continue;
-        const full = path.join(dir, file);
-        await prisma.pyqPaper.upsert({
-          where: { examCode_stage_year_paperCode: { examCode: "UPSC", stage: "mains", year, paperCode: dec.code } },
-          update: { paperName: dec.name, pdfPath: full, sizeBytes: fs.statSync(full).size },
-          create: { examCode: "UPSC", stage: "mains", year, paperCode: dec.code, paperName: dec.name, pdfPath: full, sizeBytes: fs.statSync(full).size },
-        });
-        papers++;
+        if (!dec || dec.code === "OTHER") continue; // skip undecodable junk
+        await upsert("mains", year, dec.code, dec.name, path.join(dir, file));
       }
     }
   }
@@ -82,18 +115,21 @@ async function main() {
       for (const file of fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".pdf"))) {
         const year = parseInt((file.match(/\b(20\d{2})\b/) ?? ["0"])[0], 10);
         if (!year) continue;
-        const full = path.join(dir, file);
-        await prisma.pyqPaper.upsert({
-          where: { examCode_stage_year_paperCode: { examCode: "UPSC", stage: "prelims", year, paperCode: code } },
-          update: { paperName: name, pdfPath: full, sizeBytes: fs.statSync(full).size },
-          create: { examCode: "UPSC", stage: "prelims", year, paperCode: code, paperName: name, pdfPath: full, sizeBytes: fs.statSync(full).size },
-        });
-        papers++;
+        await upsert("prelims", year, code, name, path.join(dir, file));
       }
     }
   }
 
-  console.log(`Done. ${papers} papers ingested.`);
+  // ── Prune rows we no longer produce (stale / previously mis-decoded).
+  //    Papers WITH extracted questions are never pruned (safety).
+  const all = await prisma.pyqPaper.findMany({ select: { id: true, stage: true, year: true, paperCode: true, questionCount: true } });
+  const stale = all.filter((p) => !seen.has(key(p.stage, p.year, p.paperCode)) && p.questionCount === 0);
+  if (stale.length) {
+    await prisma.pyqPaper.deleteMany({ where: { id: { in: stale.map((p) => p.id) } } });
+    console.log(`Pruned ${stale.length} stale paper rows: ${stale.map((p) => `${p.stage} ${p.year} ${p.paperCode}`).join(", ")}`);
+  }
+
+  console.log(`Done. ${papers} papers ingested/updated.`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
