@@ -70,7 +70,14 @@ async function fetchFeed(feed: Feed): Promise<RawItem[]> {
 
       const summary = clean(String(item.description ?? ""));
       const link = String(item.link ?? "");
-      const pub = item.pubDate ? new Date(String(item.pubDate)) : new Date();
+
+      // Clamp the publish date: a "current affairs" feed item should never be
+      // years old or in the future. Invalid / >1d future / >45d old → now.
+      const now = Date.now();
+      let pub = item.pubDate ? new Date(String(item.pubDate)) : new Date();
+      if (isNaN(pub.getTime()) || pub.getTime() > now + 86_400_000 || now - pub.getTime() > 45 * 86_400_000) {
+        pub = new Date();
+      }
 
       return {
         headline,
@@ -80,7 +87,7 @@ async function fetchFeed(feed: Feed): Promise<RawItem[]> {
         category: feed.category,
         examScope: feed.examScope,
         lang: feed.lang,
-        publishedAt: isNaN(pub.getTime()) ? new Date() : pub,
+        publishedAt: pub,
       };
     }).filter((x: RawItem | null): x is RawItem => x !== null);
   } catch {

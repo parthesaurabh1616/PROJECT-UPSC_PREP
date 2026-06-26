@@ -21,11 +21,12 @@ export async function POST(req: NextRequest) {
     return Response.json({ completed: false });
   }
 
-  const existing = await prisma.chapterProgress.findUnique({
-    where: { userId_chapterId: { userId: DEMO_USER_ID, chapterId } },
+  // Race-safe insert (atomic, no check-then-create collision); log once.
+  const res = await prisma.chapterProgress.createMany({
+    data: [{ userId: DEMO_USER_ID, chapterId, status: "completed" }],
+    skipDuplicates: true,
   });
-  if (!existing) {
-    await prisma.chapterProgress.create({ data: { userId: DEMO_USER_ID, chapterId, status: "completed" } });
+  if (res.count > 0) {
     await logEvent({ type: "CHAPTER_READ", refId: chapterId, subject: chapter.book.subject });
   }
   return Response.json({ completed: true });

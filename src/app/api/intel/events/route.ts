@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getActiveProfile } from "@/lib/exam";
-import { scoreAffair, tierOf, layerOf, type Layer } from "@/lib/scoring";
+import { scoreAffair, liveRank, tierOf, layerOf, type Layer } from "@/lib/scoring";
 
 /**
  * GET /api/intel/events?layer=global|india|maharashtra|all
- * Returns intelligence events for the active exam, ranked by importanceScore.
- * Existing rows (score 0) are scored on read so nothing needs re-processing.
+ * Live intelligence feed for the active exam. Ranked by a recency-aware
+ * live score computed ON READ (importance × steep time-decay), so fresh
+ * events surface and week-old items sink — nothing is frozen at ingest.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -15,25 +16,23 @@ export async function GET(req: NextRequest) {
   const profile = await getActiveProfile().catch(() => null);
   const examCode = profile?.exam.code ?? "UPSC";
 
+  // Only the last 30 days count as "live"; older items live in the archive.
+  const since = new Date(Date.now() - 30 * 86_400_000);
   const rows = await prisma.currentAffair.findMany({
-    where: { examScope: { has: examCode } },
+    where: { examScope: { has: examCode }, publishedAt: { gte: since } },
     orderBy: { publishedAt: "desc" },
     take: 200,
   });
 
   const events = rows.map((r) => {
-    // On-read scoring fallback for legacy rows.
-    let score = r.importanceScore;
-    let evLayer = (r.layer as Layer) ?? layerOf(r.category);
-    if (score === 0) {
-      const s = scoreAffair({
-        gsMapping: r.gsMapping, tags: r.tags, category: r.category,
-        source: r.source, priority: r.priority, publishedAt: r.publishedAt,
-      });
-      score = s.score;
-      evLayer = s.layer;
-    }
+    const input = { gsMapping: r.gsMapping, tags: r.tags, category: r.category, source: r.source, priority: r.priority, publishedAt: r.publishedAt };
+    // Computed on read: live recency-aware score (shown) + rank (for sorting),
+    // so a 10-day-old item no longer carries a frozen-high score.
+    const score = scoreAffair(input).score;
+    const rank = liveRank(input);
+    const evLayer = (r.layer as Layer) ?? layerOf(r.category);
     return {
+      _rank: rank,
       id: r.id,
       headline: r.headline,
       whyInNews: r.whyInNews,
@@ -57,7 +56,8 @@ export async function GET(req: NextRequest) {
   });
 
   const filtered = layer === "all" ? events : events.filter((e) => e.layer === layer);
-  filtered.sort((a, b) => b.importanceScore - a.importanceScore);
+  // Recency-dominant ranking — newest relevant events first.
+  filtered.sort((a, b) => b._rank - a._rank);
 
   const counts = {
     all: events.length,
@@ -66,5 +66,7 @@ export async function GET(req: NextRequest) {
     maharashtra: events.filter((e) => e.layer === "maharashtra").length,
   };
 
-  return Response.json({ events: filtered, counts, examCode });
+  // Strip the internal rank from the payload.
+  const payload = filtered.map(({ _rank, ...e }) => { void _rank; return e; });
+  return Response.json({ events: payload, counts, examCode });
 }

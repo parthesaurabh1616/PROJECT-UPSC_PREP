@@ -15,11 +15,14 @@ export async function POST(req: NextRequest) {
   const affair = await prisma.currentAffair.findUnique({ where: { id: affairId } });
   if (!affair) return Response.json({ error: "not found" }, { status: 404 });
 
-  const existing = await prisma.caRead.findUnique({
-    where: { userId_affairId: { userId: DEMO_USER_ID, affairId } },
+  // Race-safe: createMany + skipDuplicates is atomic and tells us if the row
+  // was newly inserted, so concurrent requests can't collide (P2002) and the
+  // CA_READ event is logged exactly once.
+  const res = await prisma.caRead.createMany({
+    data: [{ userId: DEMO_USER_ID, affairId }],
+    skipDuplicates: true,
   });
-  if (!existing) {
-    await prisma.caRead.create({ data: { userId: DEMO_USER_ID, affairId } });
+  if (res.count > 0) {
     await logEvent({ type: "CA_READ", refId: affairId, subject: affair.gsMapping[0] ?? affair.category });
   }
   return Response.json({ read: true });

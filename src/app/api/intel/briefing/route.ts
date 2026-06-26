@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getActiveProfile } from "@/lib/exam";
-import { scoreAffair } from "@/lib/scoring";
+import { liveRank } from "@/lib/scoring";
 import { generateBriefing, type Briefing } from "@/lib/ai";
 
 // In-memory cache: one briefing per exam per day (cheap, avoids re-calling AI on every load).
@@ -13,19 +13,19 @@ const TTL = 3 * 60 * 60 * 1000; // 3h
  * POST (or ?force=1)       → bypass cache and regenerate.
  */
 async function build(examCode: string): Promise<Briefing> {
+  // Today's briefing must be about TODAY — restrict to the last 14 days and
+  // rank by the live recency-aware score (computed on read), not a frozen one.
+  const since = new Date(Date.now() - 14 * 86_400_000);
   const rows = await prisma.currentAffair.findMany({
-    where: { examScope: { has: examCode } },
+    where: { examScope: { has: examCode }, publishedAt: { gte: since } },
     orderBy: { publishedAt: "desc" },
     take: 120,
   });
 
-  const scored = rows.map((r) => {
-    const score = r.importanceScore || scoreAffair({
-      gsMapping: r.gsMapping, tags: r.tags, category: r.category,
-      source: r.source, priority: r.priority, publishedAt: r.publishedAt,
-    }).score;
-    return { headline: r.headline, whyInNews: r.whyInNews, gsMapping: r.gsMapping, score };
-  });
+  const scored = rows.map((r) => ({
+    headline: r.headline, whyInNews: r.whyInNews, gsMapping: r.gsMapping,
+    score: liveRank({ gsMapping: r.gsMapping, tags: r.tags, category: r.category, source: r.source, priority: r.priority, publishedAt: r.publishedAt }),
+  }));
   scored.sort((a, b) => b.score - a.score);
 
   return generateBriefing(scored.slice(0, 10), examCode);

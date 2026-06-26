@@ -92,3 +92,35 @@ export function scoreAffair(input: ScoreInput): ScoreResult {
   const score = Math.round(Math.max(0, Math.min(1, raw)) * 100);
   return { score, tier: tierOf(score), layer: layerOf(input.category) };
 }
+
+/**
+ * Recency-FREE intrinsic importance (0-100). Stable over time — depends
+ * only on syllabus relevance, source, AI priority and impact. Use this as
+ * the importance base so age can be applied live at read time instead of
+ * being frozen at ingest.
+ */
+export function intrinsicScore(input: Omit<ScoreInput, "publishedAt">): number {
+  const sr = Math.min(1,
+    Math.min(1, input.gsMapping.length / 3) + Math.min(0.2, input.tags.length * 0.04));
+  // Weights without recency, renormalised to sum to 1 (÷0.85).
+  const raw = (
+      0.30 * sr +
+      0.20 * sourceAuthority(input.source, input.category) +
+      0.20 * priorityWeight(input.priority) +
+      0.15 * impact(input.category)
+    ) / 0.85;
+  return Math.round(Math.max(0, Math.min(1, raw)) * 100);
+}
+
+/**
+ * LIVE feed rank. Intrinsic importance dampened by a steep time-decay so a
+ * "Live Actions" feed actually surfaces the newest relevant events. Computed
+ * on READ (uses Date.now), so nothing goes stale. Default half-life 3 days:
+ * fresh → full weight, ~3d → halved, ~9d → 1/8, ~30d → negligible.
+ */
+export function liveRank(input: ScoreInput, halfLifeDays = 3): number {
+  const t = typeof input.publishedAt === "string" ? new Date(input.publishedAt).getTime() : input.publishedAt.getTime();
+  const ageDays = Math.max(0, (Date.now() - t) / 86_400_000);
+  const decay = Math.exp(-Math.LN2 * ageDays / halfLifeDays);
+  return intrinsicScore(input) * decay;
+}
