@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked,
+  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -35,6 +35,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { label: "Live Actions",    href: "/intelligence",    icon: Radio, badge: "LIVE" },
       { label: "Knowledge Hub",   href: "/knowledge",       icon: Network },
       { label: "Syllabus",        href: "/syllabus",        icon: BookMarked },
+      { label: "Optional Decision",href: "/optional",        icon: Scale, badge: "AI" },
       { label: "NCERT Library",   href: "/ncert",           icon: BookOpen },
       { label: "PYQ Intelligence",href: "/pyq",             icon: Target, badge: "AI" },
       { label: "Answer Lab",      href: "/answers",         icon: PenLine, badge: "AI" },
@@ -55,6 +56,7 @@ const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/intelligence":    { eyebrow: "COMMAND CENTER",     title: "Live Actions" },
   "/knowledge":       { eyebrow: "KNOWLEDGE GRAPH",    title: "Knowledge Hub" },
   "/syllabus":        { eyebrow: "SYLLABUS INTELLIGENCE", title: "Official UPSC Syllabus" },
+  "/optional":        { eyebrow: "OPTIONAL DECISION",   title: "Sociology · PSIR · Public Administration" },
   "/ncert":           { eyebrow: "DIGITAL LIBRARY",    title: "NCERT Library" },
   "/pyq":             { eyebrow: "PYQ INTELLIGENCE",   title: "Past Papers Decoded" },
   "/answers":         { eyebrow: "MAINS ANSWER LAB",   title: "Answer Evaluation" },
