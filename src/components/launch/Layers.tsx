@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Line, Stars, Text } from "@react-three/drei";
 import * as THREE from "three";
-import { NODES, CORRIDORS, GEO_LABELS, latLngToVector3, greatCircleCurve } from "@/lib/geo";
+import { NODES, CORRIDORS, GEO_LABELS, GROUPINGS, countryCoord, latLngToVector3, greatCircleArc, greatCircleCurve } from "@/lib/geo";
 
 const CYAN = new THREE.Color("#35d0ff");
 const AMBER = new THREE.Color("#ffb454");
@@ -208,6 +208,42 @@ export function Hotspots({ onHover, onSelect }: { onHover: (n: string | null) =>
     <group>
       {spots.map((s) => (
         <Hotspot key={s.name} {...s} onHover={onHover} onSelect={onSelect} />
+      ))}
+    </group>
+  );
+}
+
+/* ════════════ Knowledge-graph edges — groupings of the selected country ════════════ */
+export function GroupingEdges({ selectedName, active }: { selectedName: string | null; active: string | null }) {
+  const data = useMemo(() => {
+    if (!selectedName) return { arcs: [] as { pts: THREE.Vector3[]; color: string }[], dots: [] as { pos: THREE.Vector3; color: string }[] };
+    const src = countryCoord(selectedName);
+    if (!src) return { arcs: [], dots: [] };
+    const groups = GROUPINGS.filter((g) => g.members.includes(selectedName) && (!active || g.key === active));
+    const arcs: { pts: THREE.Vector3[]; color: string }[] = [];
+    const dots = new Map<string, { pos: THREE.Vector3; color: string }>();
+    for (const g of groups) {
+      for (const m of g.members) {
+        if (m === selectedName) continue;
+        const d = countryCoord(m);
+        if (!d) continue;
+        arcs.push({ pts: greatCircleArc([src.lat, src.lng], [d.lat, d.lng], 40, 0.26), color: g.color });
+        if (active) dots.set(m, { pos: latLngToVector3(d.lat, d.lng, 1.02), color: g.color });
+      }
+    }
+    return { arcs, dots: [...dots.values()] };
+  }, [selectedName, active]);
+
+  return (
+    <group>
+      {data.arcs.map((a, i) => (
+        <Line key={i} points={a.pts} color={a.color} lineWidth={active ? 1.6 : 1} transparent opacity={active ? 0.85 : 0.42} />
+      ))}
+      {data.dots.map((d, i) => (
+        <mesh key={i} position={d.pos} renderOrder={9}>
+          <sphereGeometry args={[0.013, 10, 10]} />
+          <meshBasicMaterial color={d.color} transparent blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
       ))}
     </group>
   );

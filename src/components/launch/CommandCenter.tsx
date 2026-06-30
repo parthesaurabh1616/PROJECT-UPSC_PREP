@@ -7,7 +7,7 @@ import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { motion, AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 import Globe from "./Globe";
-import { Nodes, Arcs, Labels, Hotspots, Satellites, RadarSweep, SpaceField, type CountrySelect } from "./Layers";
+import { Nodes, Arcs, Labels, Hotspots, GroupingEdges, Satellites, RadarSweep, SpaceField, type CountrySelect } from "./Layers";
 import Hud from "./Hud";
 import CountryPanel from "./CountryPanel";
 
@@ -87,10 +87,11 @@ function Rig({ onArrived, focusDir, focusKey }: { onArrived: () => void; focusDi
   );
 }
 
-function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect }: {
+function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup }: {
   onArrived: () => void; quality: "high" | "low"; frozen: boolean;
   focusDir: THREE.Vector3 | null; focusKey: string | null;
   onHover: (n: string | null) => void; onSelect: (s: CountrySelect) => void;
+  selectedName: string | null; activeGroup: string | null;
 }) {
   return (
     <>
@@ -101,6 +102,7 @@ function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSele
         <Nodes />
         <Arcs />
         <Labels />
+        <GroupingEdges selectedName={selectedName} active={activeGroup} />
         <Hotspots onHover={onHover} onSelect={onSelect} />
       </Globe>
       <Satellites count={quality === "high" ? 16 : 8} />
@@ -120,6 +122,7 @@ export default function CommandCenter() {
   const [quality, setQuality] = useState<"high" | "low">("high");
   const [hovering, setHovering] = useState<string | null>(null);
   const [selected, setSelected] = useState<CountrySelect | null>(null);
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
 
   useEffect(() => {
     const small = window.matchMedia("(max-width: 820px)").matches;
@@ -128,6 +131,7 @@ export default function CommandCenter() {
   }, []);
 
   const frozen = hovering !== null || selected !== null;
+  const selectCountry = (s: CountrySelect | null) => { setSelected(s); setActiveGroup(null); };
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#02060d]">
@@ -140,7 +144,7 @@ export default function CommandCenter() {
           gl.toneMappingExposure = 1.05;
           setBooted(true);
         }}
-        onPointerMissed={() => setSelected(null)} // click empty space / globe to deselect
+        onPointerMissed={() => selectCountry(null)} // click empty space / globe to deselect
       >
         <Suspense fallback={null}>
           <Scene
@@ -150,7 +154,9 @@ export default function CommandCenter() {
             focusDir={selected?.dir ?? null}
             focusKey={selected?.name ?? null}
             onHover={setHovering}
-            onSelect={setSelected}
+            onSelect={selectCountry}
+            selectedName={selected?.name ?? null}
+            activeGroup={activeGroup}
           />
         </Suspense>
       </Canvas>
@@ -177,7 +183,12 @@ export default function CommandCenter() {
       <Hud arrived={arrived} />
 
       {/* Country dossier — slides in on select, real platform data */}
-      <CountryPanel selected={selected} onClose={() => setSelected(null)} />
+      <CountryPanel
+        selected={selected}
+        onClose={() => selectCountry(null)}
+        activeGroup={activeGroup}
+        onToggleGroup={(k) => setActiveGroup((cur) => (cur === k ? null : k))}
+      />
     </div>
   );
 }

@@ -173,6 +173,38 @@ export const COUNTRY_INFO: Record<string, { capital: string; continent: string }
   Israel: { capital: "Jerusalem (seat of govt.)", continent: "Asia" },
 };
 
+/** International groupings — FACTUAL membership (current as of 2025), used
+   for the on-globe knowledge graph + the dossier's alliances section.
+   Member names match COUNTRY_INFO / GEO_LABELS so they map to coordinates. */
+export interface Grouping { key: string; name: string; color: string; members: string[] }
+export const GROUPINGS: Grouping[] = [
+  { key: "QUAD", name: "Quad", color: "#5fd0ff", members: ["India", "Japan", "United States", "Australia"] },
+  { key: "BRICS", name: "BRICS+", color: "#ff7a59", members: ["Brazil", "Russia", "India", "China", "South Africa", "Egypt", "Iran", "UAE"] },
+  { key: "SCO", name: "SCO", color: "#b388ff", members: ["China", "Russia", "India", "Pakistan", "Iran"] },
+  { key: "SAARC", name: "SAARC", color: "#4ade80", members: ["India", "Pakistan", "Bangladesh", "Nepal", "Sri Lanka", "Afghanistan"] },
+  { key: "BIMSTEC", name: "BIMSTEC", color: "#ffd166", members: ["India", "Bangladesh", "Myanmar", "Sri Lanka", "Nepal"] },
+  { key: "IBSA", name: "IBSA", color: "#ff8fc7", members: ["India", "Brazil", "South Africa"] },
+  { key: "I2U2", name: "I2U2", color: "#5fe0c0", members: ["India", "Israel", "United States", "UAE"] },
+  { key: "G7", name: "G7", color: "#7aa2ff", members: ["United States", "United Kingdom", "France", "Germany", "Japan", "Canada"] },
+  { key: "G20", name: "G20", color: "#9aa6b8", members: ["Argentina", "Australia", "Brazil", "Canada", "China", "France", "Germany", "India", "Indonesia", "Japan", "Mexico", "Russia", "Saudi Arabia", "South Africa", "Turkey", "United Kingdom", "United States"] },
+  { key: "NATO", name: "NATO", color: "#aeb8c8", members: ["United States", "United Kingdom", "France", "Germany", "Canada", "Turkey"] },
+  { key: "OPEC", name: "OPEC", color: "#e0b341", members: ["Saudi Arabia", "Iran", "UAE", "Nigeria"] },
+  { key: "CW", name: "Commonwealth", color: "#84d98a", members: ["India", "United Kingdom", "Canada", "Australia", "South Africa", "Nigeria", "Kenya", "Bangladesh", "Pakistan", "Sri Lanka"] },
+];
+
+export const groupingsOf = (name: string): Grouping[] => GROUPINGS.filter((g) => g.members.includes(name));
+
+/** Coordinates for any grouping member (Australia isn't a clickable country
+   label — it's the continent label — so it needs an explicit entry). */
+const EXTRA_COORDS: Record<string, { lat: number; lng: number }> = { Australia: { lat: -25, lng: 134 } };
+export function countryCoord(name: string): { lat: number; lng: number } | null {
+  const g = GEO_LABELS.find((l) => l.text === name && l.tier === "country");
+  if (g) return { lat: g.lat, lng: g.lng };
+  if (EXTRA_COORDS[name]) return EXTRA_COORDS[name];
+  const n = NODES.find((x) => x.name === name);
+  return n ? { lat: n.lat, lng: n.lng } : null;
+}
+
 /** Communication corridors — real strategic links radiating from India. */
 export const CORRIDORS: [[number, number], [number, number]][] = (() => {
   const delhi: [number, number] = [28.61, 77.21];

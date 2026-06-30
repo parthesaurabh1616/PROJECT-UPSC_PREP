@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, MapPin, Globe2, Anchor, MessageSquare, Network } from "lucide-react";
+import { X, MapPin, Globe2, Anchor, MessageSquare, Network, Share2 } from "lucide-react";
 import { RelatedPanel } from "@/components/RelatedPanel";
-import { COUNTRY_INFO, NODES } from "@/lib/geo";
+import { COUNTRY_INFO, NODES, groupingsOf } from "@/lib/geo";
 import type { CountrySelect } from "./Layers";
 
 /* Slide-in dossier for a clicked country / chokepoint. Everything shown
    is real: capital + continent are facts; the body is genuine platform
    content (PYQs, current affairs, NCERT, notes) via semantic search.
    No fabricated population / GDP / military figures. */
-export default function CountryPanel({ selected, onClose }: { selected: CountrySelect | null; onClose: () => void }) {
+export default function CountryPanel({ selected, onClose, activeGroup, onToggleGroup }: {
+  selected: CountrySelect | null; onClose: () => void;
+  activeGroup: string | null; onToggleGroup: (key: string) => void;
+}) {
   const info = selected ? COUNTRY_INFO[selected.name] : undefined;
   const choke = selected?.kind === "choke" ? NODES.find((n) => n.name === selected.name) : undefined;
+  const groups = selected ? groupingsOf(selected.name) : [];
 
   return (
     <AnimatePresence>
@@ -48,6 +52,35 @@ export default function CountryPanel({ selected, onClose }: { selected: CountryS
 
           {/* body — real linked platform content */}
           <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+            {/* Groupings & alliances — factual; click to light up the network */}
+            {groups.length > 0 && (
+              <div className="rounded-xl border border-[#173049]/70 bg-[#06121f]/50 p-3.5">
+                <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7aa2ff]">
+                  <Share2 size={12} /> Groupings &amp; alliances
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {groups.map((g) => {
+                    const on = activeGroup === g.key;
+                    return (
+                      <button key={g.key} onClick={() => onToggleGroup(g.key)} title={g.name}
+                        className="rounded-full border px-2.5 py-1 text-[10.5px] font-medium tracking-wide transition-all"
+                        style={{
+                          borderColor: g.color + (on ? "" : "66"),
+                          background: on ? g.color + "26" : "transparent",
+                          color: on ? "#fff" : g.color,
+                          boxShadow: on ? `0 0 14px ${g.color}55` : "none",
+                        }}>
+                        {g.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[10px] text-[#4d6c88]">
+                  {activeGroup ? "Showing this network on the globe — tap again to dim." : "Tap a grouping to light up its members on the globe."}
+                </p>
+              </div>
+            )}
+
             <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-[#5b86a8]">
               <Network size={12} className="mt-0.5 shrink-0 text-[#3aa0ff]" />
               Everything below is pulled live from your library — past questions, current affairs, NCERTs and notes that mention {selected.name}. Nothing is invented.
