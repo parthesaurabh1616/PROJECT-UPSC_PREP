@@ -1,0 +1,226 @@
+"use client";
+
+import { useMemo, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import { Line, Stars } from "@react-three/drei";
+import * as THREE from "three";
+import { NODES, CORRIDORS, latLngToVector3, greatCircleCurve } from "@/lib/geo";
+
+const CYAN = new THREE.Color("#35d0ff");
+const AMBER = new THREE.Color("#ffb454");
+const ARC = "#3aa0ff";
+
+/* ════════════ Strategic nodes — pulsing geo points ════════════ */
+export function Nodes() {
+  const { gl } = useThree();
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+
+  const { positions, phases, colors } = useMemo(() => {
+    const positions = new Float32Array(NODES.length * 3);
+    const phases = new Float32Array(NODES.length);
+    const colors = new Float32Array(NODES.length * 3);
+    NODES.forEach((n, i) => {
+      const p = latLngToVector3(n.lat, n.lng, 1.012);
+      positions.set([p.x, p.y, p.z], i * 3);
+      phases[i] = Math.random() * Math.PI * 2;
+      const c = n.kind === "chokepoint" ? AMBER : CYAN;
+      colors.set([c.r, c.g, c.b], i * 3);
+    });
+    return { positions, phases, colors };
+  }, []);
+
+  useFrame(({ clock }) => {
+    if (matRef.current) matRef.current.uniforms.time.value = clock.elapsedTime;
+  });
+
+  return (
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-phase" args={[phases, 1]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+      </bufferGeometry>
+      <shaderMaterial
+        ref={matRef}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        uniforms={{ time: { value: 0 }, pixelRatio: { value: gl.getPixelRatio() } }}
+        vertexShader={/* glsl */ `
+          attribute float phase;
+          uniform float time;
+          uniform float pixelRatio;
+          varying vec3 vColor;
+          void main() {
+            vColor = color;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            float pulse = 0.55 + 0.45 * sin(time * 2.2 + phase);
+            gl_PointSize = pulse * 18.0 * pixelRatio * (2.6 / -mv.z);
+            gl_Position = projectionMatrix * mv;
+          }
+        `}
+        fragmentShader={/* glsl */ `
+          varying vec3 vColor;
+          void main() {
+            float d = length(gl_PointCoord - 0.5);
+            float halo = smoothstep(0.5, 0.0, d);
+            float core = smoothstep(0.16, 0.0, d);
+            gl_FragColor = vec4(vColor * (0.5 + core * 1.6), halo);
+          }
+        `}
+        vertexColors
+      />
+    </points>
+  );
+}
+
+/* ════════════ Communication arcs + travelling data packets ════════════ */
+export function Arcs() {
+  const curves = useMemo(() => CORRIDORS.map(([a, b]) => greatCircleCurve(a, b, 0.32)), []);
+  const arcPoints = useMemo(() => curves.map((c) => c.getPoints(56)), [curves]);
+  const packets = useRef<THREE.Group>(null);
+
+  // two packets per corridor, staggered, varied speed
+  const meta = useMemo(
+    () =>
+      curves.flatMap((c, i) =>
+        [0, 0.5].map((off) => ({ curve: c, offset: off + i * 0.13, speed: 0.12 + (i % 4) * 0.03 }))
+      ),
+    [curves]
+  );
+
+  useFrame(({ clock }) => {
+    if (!packets.current) return;
+    const t = clock.elapsedTime;
+    packets.current.children.forEach((child, idx) => {
+      const m = meta[idx];
+      const u = (t * m.speed + m.offset) % 1;
+      const p = m.curve.getPoint(u);
+      child.position.set(p.x, p.y, p.z);
+      const s = 0.6 + 0.4 * Math.sin(u * Math.PI); // fade in/out along the arc
+      child.scale.setScalar(s);
+    });
+  });
+
+  return (
+    <group>
+      {arcPoints.map((pts, i) => (
+        <Line key={i} points={pts} color={ARC} lineWidth={1} transparent opacity={0.34} />
+      ))}
+      <group ref={packets}>
+        {meta.map((_, i) => (
+          <mesh key={i}>
+            <sphereGeometry args={[0.008, 8, 8]} />
+            <meshBasicMaterial color="#8fe0ff" blending={THREE.AdditiveBlending} transparent depthWrite={false} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+/* ════════════ Satellite network — orbits (trails) + moving sats ════════════ */
+function Satellite({ seed }: { seed: number }) {
+  const rng = useMemo(() => mulberry(seed), [seed]);
+  const radius = 1.32 + rng() * 0.28;
+  const speed = 0.18 + rng() * 0.22;
+  const phase = rng() * Math.PI * 2;
+  const rot = useMemo(
+    () => new THREE.Euler(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI * 0.5),
+    [] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const ringPts = useMemo(() => {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 96; i++) {
+      const a = (i / 96) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+    }
+    return pts;
+  }, [radius]);
+  const sat = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    const a = clock.elapsedTime * speed + phase;
+    if (sat.current) sat.current.position.set(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+  });
+
+  return (
+    <group rotation={rot}>
+      <Line points={ringPts} color="#1d5e8f" lineWidth={1} transparent opacity={0.2} />
+      <mesh ref={sat}>
+        <sphereGeometry args={[0.012, 8, 8]} />
+        <meshBasicMaterial color="#bfe9ff" blending={THREE.AdditiveBlending} transparent depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+export function Satellites({ count = 16 }: { count?: number }) {
+  return (
+    <group>
+      {Array.from({ length: count }).map((_, i) => (
+        <Satellite key={i} seed={i * 1337 + 7} />
+      ))}
+    </group>
+  );
+}
+
+/* ════════════ Equatorial radar sweep ════════════ */
+export function RadarSweep() {
+  const ref = useRef<THREE.ShaderMaterial>(null);
+  useFrame(({ clock }) => {
+    if (ref.current) ref.current.uniforms.time.value = clock.elapsedTime;
+  });
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[1.02, 1.9, 96, 1]} />
+      <shaderMaterial
+        ref={ref}
+        transparent
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        blending={THREE.AdditiveBlending}
+        uniforms={{ time: { value: 0 }, color: { value: new THREE.Color("#2fb6ff") } }}
+        vertexShader={/* glsl */ `
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `}
+        fragmentShader={/* glsl */ `
+          uniform float time;
+          uniform vec3 color;
+          varying vec2 vUv;
+          void main() {
+            vec2 c = vUv - 0.5;
+            float ang = atan(c.y, c.x);
+            float sweep = mod(ang - time * 0.8, 6.2831853) / 6.2831853;
+            float beam = smoothstep(0.0, 0.06, sweep) * (1.0 - smoothstep(0.06, 0.5, sweep));
+            float radial = smoothstep(0.0, 0.15, length(c)) * (1.0 - smoothstep(0.15, 0.5, length(c)));
+            gl_FragColor = vec4(color, beam * radial * 0.5);
+          }
+        `}
+      />
+    </mesh>
+  );
+}
+
+/* ════════════ Deep-space backdrop ════════════ */
+export function SpaceField() {
+  return (
+    <>
+      <Stars radius={80} depth={40} count={4500} factor={3.2} saturation={0} fade speed={0.4} />
+      <Stars radius={30} depth={10} count={800} factor={1.4} saturation={0} fade speed={0.6} />
+    </>
+  );
+}
+
+/* tiny deterministic PRNG so satellites are stable across renders */
+function mulberry(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}

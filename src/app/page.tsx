@@ -55,7 +55,7 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/command"
+          <Link href="/launch"
             className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent to-accent-2 px-6 py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-white transition-all hover:brightness-110">
             Enter Platform <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
           </Link>
@@ -102,7 +102,7 @@ export default function LandingPage() {
         </p>
         <p className="mt-3 text-[13px] text-ink-3">The tools are ready. The discipline is yours.</p>
         <div className="mt-8">
-          <Link href="/command"
+          <Link href="/launch"
             className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent to-accent-2 px-7 py-3.5 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-white transition-all hover:brightness-110">
             Enter Platform <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
           </Link>
