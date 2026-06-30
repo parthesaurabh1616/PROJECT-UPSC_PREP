@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useMemo, useRef, useState } from "react";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Line, Stars, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { NODES, CORRIDORS, GEO_LABELS, latLngToVector3, greatCircleCurve } from "@/lib/geo";
@@ -148,6 +148,67 @@ export function Labels() {
           </group>
         );
       })}
+    </group>
+  );
+}
+
+/* ════════════ Clickable hotspots — hover ring + select (camera fly-to) ════════════ */
+export interface CountrySelect { name: string; kind: "country" | "choke"; dir: THREE.Vector3 }
+
+function Hotspot({ name, lat, lng, kind, onHover, onSelect }: {
+  name: string; lat: number; lng: number; kind: "country" | "choke";
+  onHover: (n: string | null) => void; onSelect: (s: CountrySelect) => void;
+}) {
+  const ref = useRef<THREE.Mesh>(null);
+  const [hov, setHov] = useState(false);
+  const pos = useMemo(() => latLngToVector3(lat, lng, 1.0), [lat, lng]);
+  const ringPos = useMemo(() => latLngToVector3(lat, lng, 1.014), [lat, lng]);
+  const ringQuat = useMemo(
+    () => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), pos.clone().normalize()),
+    [pos]
+  );
+  const color = kind === "choke" ? "#ffb454" : "#5fe0ff";
+
+  return (
+    <group>
+      <mesh
+        ref={ref}
+        position={pos}
+        onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHov(true); onHover(name); document.body.style.cursor = "pointer"; }}
+        onPointerOut={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHov(false); onHover(null); document.body.style.cursor = "default"; }}
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation();
+          const v = new THREE.Vector3();
+          ref.current?.getWorldPosition(v);
+          onSelect({ name, kind, dir: v.normalize() });
+        }}
+      >
+        <sphereGeometry args={[0.03, 12, 12]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      {hov && (
+        <mesh position={ringPos} quaternion={ringQuat} renderOrder={11}>
+          <ringGeometry args={[0.022, 0.032, 28]} />
+          <meshBasicMaterial color={color} transparent opacity={0.95} side={THREE.DoubleSide} depthTest={false} depthWrite={false} blending={THREE.AdditiveBlending} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+export function Hotspots({ onHover, onSelect }: { onHover: (n: string | null) => void; onSelect: (s: CountrySelect) => void }) {
+  const spots = useMemo(
+    () => [
+      ...GEO_LABELS.filter((g) => g.tier === "country").map((g) => ({ name: g.text, lat: g.lat, lng: g.lng, kind: "country" as const })),
+      ...NODES.filter((n) => n.kind === "chokepoint").map((n) => ({ name: n.name, lat: n.lat, lng: n.lng, kind: "choke" as const })),
+    ],
+    []
+  );
+  return (
+    <group>
+      {spots.map((s) => (
+        <Hotspot key={s.name} {...s} onHover={onHover} onSelect={onSelect} />
+      ))}
     </group>
   );
 }

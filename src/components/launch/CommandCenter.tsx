@@ -7,37 +7,66 @@ import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { motion, AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 import Globe from "./Globe";
-import { Nodes, Arcs, Labels, Satellites, RadarSweep, SpaceField } from "./Layers";
+import { Nodes, Arcs, Labels, Hotspots, Satellites, RadarSweep, SpaceField, type CountrySelect } from "./Layers";
 import Hud from "./Hud";
+import CountryPanel from "./CountryPanel";
 
 const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const REST = new THREE.Vector3(1.9, 1.05, 2.7); // resting camera after fly-in
+const FOCUS_DIST = 2.1;
 
-/* ── Cinematic camera: scripted fly-in for ~7s, then interactive
-   orbit with slow auto-rotate + damping inertia. ── */
-function Rig({ onArrived }: { onArrived: () => void }) {
+/* ── Cinematic camera: scripted fly-in (~7s), then interactive orbit
+   with auto-rotate; on country select, smooth fly-to that point. ── */
+function Rig({ onArrived, focusDir, focusKey }: { onArrived: () => void; focusDir: THREE.Vector3 | null; focusKey: string | null }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controls = useRef<any>(null);
   const { camera } = useThree();
   const start = useRef<number | null>(null);
   const arrived = useRef(false);
+  const prevKey = useRef<string | null | undefined>(undefined);
+  const anim = useRef({ active: false, t0: 0, from: new THREE.Vector3(), to: new THREE.Vector3() });
   const FLY = 7;
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     if (start.current === null) start.current = t;
     const e = t - start.current;
+
+    // 1) scripted fly-in
     if (e < FLY) {
       const k = easeInOut(Math.min(e / FLY, 1));
-      camera.position.set(lerp(0.15, 1.9, k), lerp(-0.18, 1.05, k), lerp(6.6, 2.7, k));
+      camera.position.set(lerp(0.15, REST.x, k), lerp(-0.18, REST.y, k), lerp(6.6, REST.z, k));
       camera.lookAt(0, 0, 0);
       if (controls.current) controls.current.enabled = false;
+      return;
+    }
+    if (!arrived.current) {
+      arrived.current = true;
+      prevKey.current = focusKey; // adopt initial (null) without animating
+      if (controls.current) controls.current.enabled = true;
+      onArrived();
+    }
+
+    // 2) start a fly-to when the selection changes
+    if (focusKey !== prevKey.current) {
+      prevKey.current = focusKey;
+      anim.current.from.copy(camera.position);
+      anim.current.to.copy(focusDir ? focusDir.clone().multiplyScalar(FOCUS_DIST) : REST);
+      anim.current.t0 = t;
+      anim.current.active = true;
+    }
+
+    // 3) run the fly-to, else hand control back
+    if (anim.current.active) {
+      const k = easeInOut(Math.min((t - anim.current.t0) / 1.2, 1));
+      camera.position.lerpVectors(anim.current.from, anim.current.to, k);
+      camera.lookAt(0, 0, 0);
+      if (controls.current) controls.current.enabled = false;
+      if (k >= 1) anim.current.active = false;
     } else if (controls.current) {
-      if (!arrived.current) {
-        arrived.current = true;
-        controls.current.enabled = true;
-        onArrived();
-      }
+      controls.current.enabled = true;
+      controls.current.autoRotate = !focusKey; // stop spinning while focused
       controls.current.update();
     }
   });
@@ -58,20 +87,25 @@ function Rig({ onArrived }: { onArrived: () => void }) {
   );
 }
 
-function Scene({ onArrived, quality }: { onArrived: () => void; quality: "high" | "low" }) {
+function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect }: {
+  onArrived: () => void; quality: "high" | "low"; frozen: boolean;
+  focusDir: THREE.Vector3 | null; focusKey: string | null;
+  onHover: (n: string | null) => void; onSelect: (s: CountrySelect) => void;
+}) {
   return (
     <>
       <color attach="background" args={["#02060d"]} />
       <fog attach="fog" args={["#02060d", 8, 16]} />
       <SpaceField />
-      <Globe>
+      <Globe frozen={frozen}>
         <Nodes />
         <Arcs />
         <Labels />
+        <Hotspots onHover={onHover} onSelect={onSelect} />
       </Globe>
       <Satellites count={quality === "high" ? 16 : 8} />
       <RadarSweep />
-      <Rig onArrived={onArrived} />
+      <Rig onArrived={onArrived} focusDir={focusDir} focusKey={focusKey} />
       <EffectComposer multisampling={quality === "high" ? 4 : 0}>
         <Bloom intensity={0.9} luminanceThreshold={0.2} luminanceSmoothing={0.5} mipmapBlur radius={0.7} />
         <Vignette eskil={false} offset={0.25} darkness={0.85} />
@@ -84,12 +118,16 @@ export default function CommandCenter() {
   const [booted, setBooted] = useState(false); // webgl first frame painted
   const [arrived, setArrived] = useState(false); // camera reached rest
   const [quality, setQuality] = useState<"high" | "low">("high");
+  const [hovering, setHovering] = useState<string | null>(null);
+  const [selected, setSelected] = useState<CountrySelect | null>(null);
 
   useEffect(() => {
     const small = window.matchMedia("(max-width: 820px)").matches;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (small || reduced) setQuality("low");
   }, []);
+
+  const frozen = hovering !== null || selected !== null;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#02060d]">
@@ -102,9 +140,18 @@ export default function CommandCenter() {
           gl.toneMappingExposure = 1.05;
           setBooted(true);
         }}
+        onPointerMissed={() => setSelected(null)} // click empty space / globe to deselect
       >
         <Suspense fallback={null}>
-          <Scene onArrived={() => setArrived(true)} quality={quality} />
+          <Scene
+            onArrived={() => setArrived(true)}
+            quality={quality}
+            frozen={frozen}
+            focusDir={selected?.dir ?? null}
+            focusKey={selected?.name ?? null}
+            onHover={setHovering}
+            onSelect={setSelected}
+          />
         </Suspense>
       </Canvas>
 
@@ -128,6 +175,9 @@ export default function CommandCenter() {
 
       {/* HUD overlay (DOM) — reveals after the fly-in */}
       <Hud arrived={arrived} />
+
+      {/* Country dossier — slides in on select, real platform data */}
+      <CountryPanel selected={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

@@ -86,7 +86,7 @@ const atmoFrag = /* glsl */ `
   }
 `;
 
-export default function Globe({ children }: { children?: ReactNode }) {
+export default function Globe({ children, frozen = false }: { children?: ReactNode; frozen?: boolean }) {
   const [dayMap, nightMap, cloudMap, specMap] = useTexture([
     "/textures/earth/earth_atmos_2048.jpg",
     "/textures/earth/earth_lights_2048.png",
@@ -141,8 +141,8 @@ export default function Globe({ children }: { children?: ReactNode }) {
   const spin = useRef<THREE.Group>(null);
   const clouds = useRef<THREE.Mesh>(null);
   useFrame((_, dt) => {
-    if (spin.current) spin.current.rotation.y += dt * 0.025;
-    if (clouds.current) clouds.current.rotation.y += dt * 0.009;
+    if (spin.current && !frozen) spin.current.rotation.y += dt * 0.025;
+    if (clouds.current) clouds.current.rotation.y += dt * 0.009; // clouds always drift
   });
 
   return (

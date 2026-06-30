@@ -139,6 +139,40 @@ export const GEO_LABELS: GeoLabel[] = [
   { text: "Israel", lat: 31, lng: 35, tier: "country" },
 ];
 
+/** Real capital + continent for the labelled countries (factual reference,
+   no fabricated metrics). Used by the country panel header. */
+export const COUNTRY_INFO: Record<string, { capital: string; continent: string }> = {
+  India: { capital: "New Delhi", continent: "Asia" },
+  China: { capital: "Beijing", continent: "Asia" },
+  Russia: { capital: "Moscow", continent: "Europe / Asia" },
+  "United States": { capital: "Washington, D.C.", continent: "North America" },
+  Brazil: { capital: "Brasília", continent: "South America" },
+  Canada: { capital: "Ottawa", continent: "North America" },
+  Japan: { capital: "Tokyo", continent: "Asia" },
+  Indonesia: { capital: "Jakarta", continent: "Asia" },
+  Pakistan: { capital: "Islamabad", continent: "Asia" },
+  Bangladesh: { capital: "Dhaka", continent: "Asia" },
+  Nepal: { capital: "Kathmandu", continent: "Asia" },
+  "Sri Lanka": { capital: "Sri Jayawardenepura Kotte", continent: "Asia" },
+  Iran: { capital: "Tehran", continent: "Asia" },
+  "Saudi Arabia": { capital: "Riyadh", continent: "Asia" },
+  UAE: { capital: "Abu Dhabi", continent: "Asia" },
+  Egypt: { capital: "Cairo", continent: "Africa" },
+  "South Africa": { capital: "Pretoria (admin.)", continent: "Africa" },
+  Nigeria: { capital: "Abuja", continent: "Africa" },
+  Kenya: { capital: "Nairobi", continent: "Africa" },
+  "United Kingdom": { capital: "London", continent: "Europe" },
+  France: { capital: "Paris", continent: "Europe" },
+  Germany: { capital: "Berlin", continent: "Europe" },
+  Turkey: { capital: "Ankara", continent: "Asia / Europe" },
+  Ukraine: { capital: "Kyiv", continent: "Europe" },
+  Mexico: { capital: "Mexico City", continent: "North America" },
+  Argentina: { capital: "Buenos Aires", continent: "South America" },
+  Myanmar: { capital: "Naypyidaw", continent: "Asia" },
+  Afghanistan: { capital: "Kabul", continent: "Asia" },
+  Israel: { capital: "Jerusalem (seat of govt.)", continent: "Asia" },
+};
+
 /** Communication corridors — real strategic links radiating from India. */
 export const CORRIDORS: [[number, number], [number, number]][] = (() => {
   const delhi: [number, number] = [28.61, 77.21];
