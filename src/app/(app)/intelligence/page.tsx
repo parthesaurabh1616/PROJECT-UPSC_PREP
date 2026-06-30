@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Radio, Loader2, RefreshCw, ExternalLink, X, Globe2, Flag, Landmark, Sparkles, Target, Layers, Check } from "lucide-react";
+import { Radio, Loader2, RefreshCw, ExternalLink, X, Globe2, Flag, Landmark, Sparkles, Target, Layers, Check, type LucideIcon } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { GlobeCanvas, type Article } from "@/components/GlobeCanvas";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ interface Briefing {
   examCode?: string;
 }
 
-const LAYERS: { key: LayerKey; label: string; icon: React.ElementType }[] = [
+const LAYERS: { key: LayerKey; label: string; icon: LucideIcon }[] = [
   { key: "all",          label: "All Layers",  icon: Radio },
   { key: "global",       label: "Global",      icon: Globe2 },
   { key: "india",        label: "India",       icon: Flag },

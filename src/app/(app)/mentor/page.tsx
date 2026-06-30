@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Plus, Paperclip, ArrowUp, Loader2, CornerDownLeft, Zap, Brain, Trash2 } from "lucide-react";
+import { Plus, Paperclip, ArrowUp, Loader2, CornerDownLeft, Zap, Brain, Trash2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message { id: string; role: "user" | "assistant"; content: string; }
@@ -9,7 +9,7 @@ interface Conversation { id: string; title: string; messages: Message[]; updated
 
 type ModelId = "gemini-2.5-flash" | "llama-3.3-70b-versatile";
 
-const MODELS: Record<ModelId, { label: string; badge: string; description: string; icon: React.ElementType; badgeClass: string; note?: string }> = {
+const MODELS: Record<ModelId, { label: string; badge: string; description: string; icon: LucideIcon; badgeClass: string; note?: string }> = {
   "llama-3.3-70b-versatile": {
     label: "Llama 3.3 70B",
     badge: "Fast",

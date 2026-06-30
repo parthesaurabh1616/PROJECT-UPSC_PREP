@@ -10,14 +10,14 @@ import { Ambience } from "@/lib/ambience";
 
 interface Overview {
   exam?: { shortName?: string; targetYear?: number | null; daysToPrelims?: number | null };
-  streak?: number | { current?: number; days?: number };
-  studyToday?: number;
+  streak?: number | { streak?: number; current?: number; days?: number };
+  studyToday?: number | { minutes?: number };
   coverage?: { ncert?: { pct?: number } };
 }
 interface Affair { id: string; title: string; category?: string; publishedAt?: string }
 
 const num = (s: Overview["streak"]) =>
-  typeof s === "number" ? s : s?.current ?? s?.days ?? 0;
+  typeof s === "number" ? s : s?.streak ?? s?.current ?? s?.days ?? 0;
 
 /* live FPS, measured (not faked) */
 function useFps() {
@@ -94,7 +94,7 @@ export default function Hud({ arrived }: { arrived: boolean }) {
   const utc = clock?.toISOString().slice(11, 19) ?? "--:--:--";
   const local = clock?.toLocaleTimeString([], { hour12: false }) ?? "--:--:--";
   const streak = num(ov?.streak);
-  const focus = ov?.studyToday ?? 0;
+  const focus = typeof ov?.studyToday === "number" ? ov.studyToday : ov?.studyToday?.minutes ?? 0;
   const tPrelims = ov?.exam?.daysToPrelims ?? null;
   const cover = ov?.coverage?.ncert?.pct ?? 0;
 
@@ -139,7 +139,7 @@ export default function Hud({ arrived }: { arrived: boolean }) {
 
       {/* ════ BOTTOM LEFT — live intelligence feed (real CA) ════ */}
       <motion.div variants={panel(0.4)} initial="hidden" animate={arrived ? "show" : "hidden"}
-        className="absolute bottom-6 left-5 max-w-[330px] md:left-8 md:bottom-8">
+        className="absolute bottom-6 left-5 hidden max-w-[330px] lg:block md:left-8 md:bottom-8">
         <p className="mb-2 flex items-center gap-1.5 text-[8.5px] uppercase tracking-[0.3em] text-[#5b86a8]"><Radio size={11} className="text-[#3aa0ff]" /> Geopolitical Feed</p>
         <div className="space-y-1.5">
           {feed.length === 0 && <p className="text-[10px] text-[#4d6c88]">No briefings ingested yet — add current affairs to populate the feed.</p>}
@@ -154,7 +154,7 @@ export default function Hud({ arrived }: { arrived: boolean }) {
 
       {/* ════ BOTTOM RIGHT — real telemetry ════ */}
       <motion.div variants={panel(0.5)} initial="hidden" animate={arrived ? "show" : "hidden"}
-        className="absolute bottom-6 right-5 flex flex-col items-end gap-1 md:right-8 md:bottom-8">
+        className="absolute bottom-6 right-5 hidden flex-col items-end gap-1 lg:flex md:right-8 md:bottom-8">
         <Stat icon={<Activity size={11} className={fps >= 50 ? "text-[#4ade80]" : fps >= 30 ? "text-[#ffb454]" : "text-[#ff6b6b]"} />} label="FPS" value={fps ? `${fps}` : "…"} />
         {heap != null && <Stat icon={<Activity size={11} />} label="JS Heap" value={`${heap} MB`} />}
         <Stat icon={<Satellite size={11} />} label="Sats" value="16 orbiting" />
