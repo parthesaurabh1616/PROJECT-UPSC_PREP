@@ -81,6 +81,64 @@ export const NODES: StrategicNode[] = [
   { name: "Panama Canal", lat: 9.08, lng: -79.68, kind: "chokepoint", note: "Atlantic–Pacific shortcut" },
 ];
 
+export interface GeoLabel {
+  text: string;
+  lat: number;
+  lng: number;
+  tier: "continent" | "ocean" | "country";
+  primary?: boolean; // India — highlighted for the aspirant
+}
+
+/** Continents (approx. centroids) + oceans + UPSC-relevant countries.
+   Real coordinates so the labels sit where they should geographically. */
+export const GEO_LABELS: GeoLabel[] = [
+  // ── Continents ──
+  { text: "ASIA", lat: 48, lng: 88, tier: "continent" },
+  { text: "AFRICA", lat: 6, lng: 20, tier: "continent" },
+  { text: "EUROPE", lat: 52, lng: 14, tier: "continent" },
+  { text: "NORTH AMERICA", lat: 46, lng: -100, tier: "continent" },
+  { text: "SOUTH AMERICA", lat: -12, lng: -58, tier: "continent" },
+  { text: "AUSTRALIA", lat: -25, lng: 134, tier: "continent" },
+  { text: "ANTARCTICA", lat: -80, lng: 20, tier: "continent" },
+  // ── Oceans ──
+  { text: "Pacific Ocean", lat: 5, lng: -150, tier: "ocean" },
+  { text: "Pacific Ocean", lat: 10, lng: 160, tier: "ocean" },
+  { text: "Atlantic Ocean", lat: 8, lng: -32, tier: "ocean" },
+  { text: "Indian Ocean", lat: -28, lng: 78, tier: "ocean" },
+  { text: "Arctic Ocean", lat: 85, lng: 0, tier: "ocean" },
+  { text: "Southern Ocean", lat: -60, lng: 110, tier: "ocean" },
+  // ── Countries (capital/centroid) ──
+  { text: "India", lat: 22, lng: 79, tier: "country", primary: true },
+  { text: "China", lat: 35, lng: 103, tier: "country" },
+  { text: "Russia", lat: 61, lng: 90, tier: "country" },
+  { text: "United States", lat: 39, lng: -98, tier: "country" },
+  { text: "Brazil", lat: -10, lng: -53, tier: "country" },
+  { text: "Canada", lat: 58, lng: -106, tier: "country" },
+  { text: "Japan", lat: 36, lng: 138, tier: "country" },
+  { text: "Indonesia", lat: -2, lng: 118, tier: "country" },
+  { text: "Pakistan", lat: 30, lng: 69, tier: "country" },
+  { text: "Bangladesh", lat: 24, lng: 90, tier: "country" },
+  { text: "Nepal", lat: 28, lng: 84, tier: "country" },
+  { text: "Sri Lanka", lat: 7.8, lng: 80.7, tier: "country" },
+  { text: "Iran", lat: 32, lng: 53, tier: "country" },
+  { text: "Saudi Arabia", lat: 24, lng: 45, tier: "country" },
+  { text: "UAE", lat: 24, lng: 54, tier: "country" },
+  { text: "Egypt", lat: 26, lng: 30, tier: "country" },
+  { text: "South Africa", lat: -29, lng: 24, tier: "country" },
+  { text: "Nigeria", lat: 9, lng: 8, tier: "country" },
+  { text: "Kenya", lat: 0.5, lng: 37.9, tier: "country" },
+  { text: "United Kingdom", lat: 54, lng: -2, tier: "country" },
+  { text: "France", lat: 46, lng: 2, tier: "country" },
+  { text: "Germany", lat: 51, lng: 10, tier: "country" },
+  { text: "Turkey", lat: 39, lng: 35, tier: "country" },
+  { text: "Ukraine", lat: 49, lng: 32, tier: "country" },
+  { text: "Mexico", lat: 23, lng: -102, tier: "country" },
+  { text: "Argentina", lat: -34, lng: -64, tier: "country" },
+  { text: "Myanmar", lat: 21, lng: 96, tier: "country" },
+  { text: "Afghanistan", lat: 33, lng: 65, tier: "country" },
+  { text: "Israel", lat: 31, lng: 35, tier: "country" },
+];
+
 /** Communication corridors — real strategic links radiating from India. */
 export const CORRIDORS: [[number, number], [number, number]][] = (() => {
   const delhi: [number, number] = [28.61, 77.21];

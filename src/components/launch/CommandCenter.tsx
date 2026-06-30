@@ -7,7 +7,7 @@ import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { motion, AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 import Globe from "./Globe";
-import { Nodes, Arcs, Satellites, RadarSweep, SpaceField } from "./Layers";
+import { Nodes, Arcs, Labels, Satellites, RadarSweep, SpaceField } from "./Layers";
 import Hud from "./Hud";
 
 const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -67,6 +67,7 @@ function Scene({ onArrived, quality }: { onArrived: () => void; quality: "high" 
       <Globe>
         <Nodes />
         <Arcs />
+        <Labels />
       </Globe>
       <Satellites count={quality === "high" ? 16 : 8} />
       <RadarSweep />

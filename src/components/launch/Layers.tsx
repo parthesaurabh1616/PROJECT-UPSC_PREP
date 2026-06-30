@@ -2,9 +2,9 @@
 
 import { useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Line, Stars } from "@react-three/drei";
+import { Line, Stars, Text } from "@react-three/drei";
 import * as THREE from "three";
-import { NODES, CORRIDORS, latLngToVector3, greatCircleCurve } from "@/lib/geo";
+import { NODES, CORRIDORS, GEO_LABELS, latLngToVector3, greatCircleCurve } from "@/lib/geo";
 
 const CYAN = new THREE.Color("#35d0ff");
 const AMBER = new THREE.Color("#ffb454");
@@ -71,6 +71,84 @@ export function Nodes() {
         vertexColors
       />
     </points>
+  );
+}
+
+/* ════════════ Geographic labels — continents · oceans · countries · chokepoints ════════════ */
+type LabelTier = "continent" | "ocean" | "country" | "choke";
+const LABEL_STYLE: Record<LabelTier, { size: number; color: string; fillOpacity: number; spacing: number; outline: number }> = {
+  continent: { size: 0.05, color: "#dbe9f7", fillOpacity: 0.5, spacing: 0.22, outline: 0.0035 },
+  ocean: { size: 0.037, color: "#6fa0c8", fillOpacity: 0.55, spacing: 0.26, outline: 0.003 },
+  country: { size: 0.026, color: "#cfe6fb", fillOpacity: 0.95, spacing: 0.02, outline: 0.004 },
+  choke: { size: 0.02, color: "#ffb454", fillOpacity: 0.9, spacing: 0.04, outline: 0.004 },
+};
+interface LabelItem { text: string; lat: number; lng: number; tier: LabelTier; primary?: boolean }
+const LABEL_FONT = "/fonts/Rajdhani-Medium.ttf"; // bundled — no runtime CDN fetch
+
+export function Labels() {
+  const root = useRef<THREE.Group>(null);
+  const refs = useRef<(THREE.Group | null)[]>([]);
+
+  const items = useMemo<LabelItem[]>(
+    () => [
+      ...GEO_LABELS.map((g) => ({ text: g.text, lat: g.lat, lng: g.lng, tier: g.tier as LabelTier, primary: g.primary })),
+      ...NODES.filter((n) => n.kind === "chokepoint").map((n) => ({ text: n.name, lat: n.lat, lng: n.lng, tier: "choke" as LabelTier })),
+    ],
+    []
+  );
+
+  const tmp = useMemo(
+    () => ({
+      parentQ: new THREE.Quaternion(), parentQInv: new THREE.Quaternion(), bbQ: new THREE.Quaternion(),
+      wp: new THREE.Vector3(), n: new THREE.Vector3(), v: new THREE.Vector3(),
+    }),
+    []
+  );
+
+  useFrame(({ camera }) => {
+    const parent = root.current?.parent;
+    if (!parent) return;
+    parent.getWorldQuaternion(tmp.parentQ);
+    tmp.parentQInv.copy(tmp.parentQ).invert();
+    tmp.bbQ.copy(tmp.parentQInv).multiply(camera.quaternion); // billboard within the spinning frame
+    for (const g of refs.current) {
+      if (!g) continue;
+      g.quaternion.copy(tmp.bbQ);
+      g.getWorldPosition(tmp.wp);
+      tmp.n.copy(tmp.wp).normalize();
+      tmp.v.copy(camera.position).sub(tmp.wp).normalize();
+      g.visible = tmp.n.dot(tmp.v) > 0.12; // cull the far hemisphere
+    }
+  });
+
+  return (
+    <group ref={root}>
+      {items.map((l, i) => {
+        const s = LABEL_STYLE[l.tier];
+        return (
+          <group key={i} ref={(el) => { refs.current[i] = el; }} position={latLngToVector3(l.lat, l.lng, 1.02)}>
+            <Text
+              font={LABEL_FONT}
+              fontSize={l.primary ? s.size * 1.25 : s.size}
+              color={l.primary ? "#5fe0ff" : s.color}
+              anchorX="center"
+              anchorY="middle"
+              letterSpacing={s.spacing}
+              outlineWidth={s.outline}
+              outlineColor="#02060d"
+              outlineOpacity={0.85}
+              fillOpacity={l.primary ? 1 : s.fillOpacity}
+              renderOrder={10}
+              material-transparent
+              material-depthTest={false}
+              material-depthWrite={false}
+            >
+              {l.text}
+            </Text>
+          </group>
+        );
+      })}
+    </group>
   );
 }
 
