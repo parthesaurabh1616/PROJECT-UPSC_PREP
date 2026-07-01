@@ -213,6 +213,60 @@ export function Hotspots({ onHover, onSelect }: { onHover: (n: string | null) =>
   );
 }
 
+/* ════════════ Current-affairs pins — this week's news, placed on the map ════════════ */
+export interface AffairPin { name: string; count: number; lat: number; lng: number }
+export function AffairsPins({ data, onSelect, onHover }: {
+  data: AffairPin[]; onSelect: (s: CountrySelect, shift: boolean) => void; onHover: (n: string | null) => void;
+}) {
+  const root = useRef<THREE.Group>(null);
+  const bill = useRef<(THREE.Group | null)[]>([]);
+  const dots = useRef<(THREE.Mesh | null)[]>([]);
+  const tmp = useMemo(() => ({ pq: new THREE.Quaternion(), pqi: new THREE.Quaternion(), bb: new THREE.Quaternion(), wp: new THREE.Vector3(), n: new THREE.Vector3(), v: new THREE.Vector3() }), []);
+
+  useFrame(({ camera, clock }) => {
+    const parent = root.current?.parent;
+    if (!parent) return;
+    parent.getWorldQuaternion(tmp.pq); tmp.pqi.copy(tmp.pq).invert(); tmp.bb.copy(tmp.pqi).multiply(camera.quaternion);
+    const t = clock.elapsedTime;
+    for (let i = 0; i < bill.current.length; i++) {
+      const g = bill.current[i];
+      if (!g) continue;
+      g.quaternion.copy(tmp.bb);
+      g.getWorldPosition(tmp.wp); tmp.n.copy(tmp.wp).normalize(); tmp.v.copy(camera.position).sub(tmp.wp).normalize();
+      g.visible = tmp.n.dot(tmp.v) > 0.1;
+      const d = dots.current[i];
+      if (d) d.scale.setScalar(1 + 0.35 * Math.sin(t * 3 + i));
+    }
+  });
+
+  return (
+    <group ref={root}>
+      {data.map((p, i) => (
+        <group key={p.name} position={latLngToVector3(p.lat, p.lng, 1.02)}>
+          <mesh
+            onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(p.name); document.body.style.cursor = "pointer"; }}
+            onPointerOut={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(null); document.body.style.cursor = "default"; }}
+            onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); const v = new THREE.Vector3(); (e.object as THREE.Object3D).getWorldPosition(v); onSelect({ name: p.name, kind: "country", dir: v.normalize() }, e.nativeEvent.shiftKey); }}
+          >
+            <sphereGeometry args={[0.03, 12, 12]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
+          <group ref={(el) => { bill.current[i] = el; }}>
+            <mesh ref={(el) => { dots.current[i] = el; }}>
+              <sphereGeometry args={[0.013, 12, 12]} />
+              <meshBasicMaterial color="#ff9a3c" blending={THREE.AdditiveBlending} transparent depthWrite={false} />
+            </mesh>
+            <Text position={[0, 0.05, 0]} font={LABEL_FONT} fontSize={0.03} color="#ffd6a0" anchorX="center" anchorY="middle"
+              outlineWidth={0.004} outlineColor="#1a0e00" renderOrder={12} material-transparent material-depthTest={false} material-depthWrite={false}>
+              {String(p.count)}
+            </Text>
+          </group>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 /* ════════════ Knowledge-graph edges — groupings, with travelling packets ════════════ */
 type Arc = { pts: THREE.Vector3[]; color: string };
 export function GroupingEdges({ selectedName, active, exploreGroup, compare }: { selectedName: string | null; active: string | null; exploreGroup: string | null; compare: { a: string; b: string } | null }) {

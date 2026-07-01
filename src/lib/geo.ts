@@ -194,6 +194,47 @@ export const GROUPINGS: Grouping[] = [
 
 export const groupingsOf = (name: string): Grouping[] => GROUPINGS.filter((g) => g.members.includes(name));
 
+/** Match free text (a headline) to the countries it mentions — real
+   keyword/demonym/capital matching, so current affairs can be pinned to
+   the map. Conservative: only confident matches; ambiguous text yields none. */
+const COUNTRY_MATCHERS: Record<string, RegExp[]> = {
+  India: [/\bindia(n|ns)?\b/i, /\bnew delhi\b/i],
+  China: [/\bchin(a|ese)\b/i, /\bbeijing\b/i],
+  Russia: [/\bruss(ia|ian)\b/i, /\bmoscow\b/i, /\bkremlin\b/i, /\bputin\b/i],
+  "United States": [/\bunited states\b/i, /\bU\.?S\.?A?\b/, /\bamerican?\b/i, /\bwashington\b/i, /\bwhite house\b/i],
+  Brazil: [/\bbrazil(ian)?\b/i, /\bbrasilia\b/i],
+  Canada: [/\bcanad(a|ian)\b/i, /\bottawa\b/i],
+  Japan: [/\bjapan(ese)?\b/i, /\btokyo\b/i],
+  Indonesia: [/\bindonesia(n)?\b/i, /\bjakarta\b/i],
+  Pakistan: [/\bpakistan(i)?\b/i, /\bislamabad\b/i],
+  Bangladesh: [/\bbangladesh(i)?\b/i, /\bdhaka\b/i],
+  Nepal: [/\bnepal(i|ese)?\b/i, /\bkathmandu\b/i],
+  "Sri Lanka": [/\bsri lanka(n)?\b/i, /\bcolombo\b/i],
+  Iran: [/\biran(ian)?\b/i, /\btehran\b/i],
+  "Saudi Arabia": [/\bsaudi\b/i, /\briyadh\b/i],
+  UAE: [/\bU\.?A\.?E\b/, /\bemirates\b/i, /\babu dhabi\b/i, /\bdubai\b/i],
+  Egypt: [/\begypt(ian)?\b/i, /\bcairo\b/i],
+  "South Africa": [/\bsouth africa(n)?\b/i, /\bpretoria\b/i, /\bjohannesburg\b/i],
+  Nigeria: [/\bnigeria(n)?\b/i, /\babuja\b/i],
+  Kenya: [/\bkenya(n)?\b/i, /\bnairobi\b/i],
+  "United Kingdom": [/\bunited kingdom\b/i, /\bU\.?K\b/, /\bbritain\b/i, /\bbritish\b/i, /\blondon\b/i],
+  France: [/\bfrance\b/i, /\bfrench\b/i, /\bparis\b/i],
+  Germany: [/\bgerman(y)?\b/i, /\bberlin\b/i],
+  Turkey: [/\bturkey\b/i, /\bturkish\b/i, /\bankara\b/i, /\bt(ü|u)rkiye\b/i],
+  Ukraine: [/\bukrain(e|ian)\b/i, /\bkyiv\b/i, /\bkiev\b/i],
+  Mexico: [/\bmexic(o|an)\b/i],
+  Argentina: [/\bargentin(a|e|ian)\b/i, /\bbuenos aires\b/i],
+  Myanmar: [/\bmyanmar\b/i, /\bburma\b/i],
+  Afghanistan: [/\bafghan(istan)?\b/i, /\bkabul\b/i, /\btaliban\b/i],
+  Israel: [/\bisrael(i)?\b/i, /\btel aviv\b/i, /\bjerusalem\b/i],
+};
+export function matchCountries(text: string): string[] {
+  if (!text) return [];
+  const hits: string[] = [];
+  for (const [name, res] of Object.entries(COUNTRY_MATCHERS)) if (res.some((re) => re.test(text))) hits.push(name);
+  return hits;
+}
+
 /** Coordinates for any grouping member (Australia isn't a clickable country
    label — it's the continent label — so it needs an explicit entry). */
 const EXTRA_COORDS: Record<string, { lat: number; lng: number }> = { Australia: { lat: -25, lng: 134 } };

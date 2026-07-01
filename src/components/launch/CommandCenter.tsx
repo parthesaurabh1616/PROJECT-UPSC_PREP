@@ -7,11 +7,13 @@ import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { motion, AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 import Globe from "./Globe";
-import { Nodes, Arcs, Labels, Hotspots, GroupingEdges, Satellites, RadarSweep, SpaceField, type CountrySelect } from "./Layers";
+import { Nodes, Arcs, Labels, Hotspots, GroupingEdges, AffairsPins, Satellites, RadarSweep, SpaceField, type CountrySelect, type AffairPin } from "./Layers";
 import Hud from "./Hud";
 import CountryPanel from "./CountryPanel";
 import ComparePanel from "./ComparePanel";
 import GroupingsExplorer from "./GroupingsExplorer";
+import AffairsControl from "./AffairsControl";
+import { matchCountries, countryCoord } from "@/lib/geo";
 
 const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -89,12 +91,12 @@ function Rig({ onArrived, focusDir, focusKey }: { onArrived: () => void; focusDi
   );
 }
 
-function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup, exploreGroup, compare }: {
+function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup, exploreGroup, compare, affairPins }: {
   onArrived: () => void; quality: "high" | "low"; frozen: boolean;
   focusDir: THREE.Vector3 | null; focusKey: string | null;
   onHover: (n: string | null) => void; onSelect: (s: CountrySelect, shift: boolean) => void;
   selectedName: string | null; activeGroup: string | null; exploreGroup: string | null;
-  compare: { a: string; b: string } | null;
+  compare: { a: string; b: string } | null; affairPins: AffairPin[];
 }) {
   return (
     <>
@@ -106,6 +108,7 @@ function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSele
         <Arcs />
         <Labels />
         <GroupingEdges selectedName={selectedName} active={activeGroup} exploreGroup={exploreGroup} compare={compare} />
+        {affairPins.length > 0 && <AffairsPins data={affairPins} onSelect={onSelect} onHover={onHover} />}
         <Hotspots onHover={onHover} onSelect={onSelect} />
       </Globe>
       <Satellites count={quality === "high" ? 16 : 8} />
@@ -128,6 +131,10 @@ export default function CommandCenter() {
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [exploreGroup, setExploreGroup] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<CountrySelect | null>(null);
+  const [affairsOn, setAffairsOn] = useState(false);
+  const [affairsLoading, setAffairsLoading] = useState(false);
+  const [affairPins, setAffairPins] = useState<AffairPin[]>([]);
+  const [affairMeta, setAffairMeta] = useState({ total: 0, located: 0, countries: 0 });
   // Mirror selection in a ref — R3F event handlers can close over a stale
   // `selected`, so the shift-to-compare decision reads the ref, not state.
   const selectedRef = useRef<CountrySelect | null>(null);
@@ -138,6 +145,32 @@ export default function CommandCenter() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (small || reduced) setQuality("low");
   }, []);
+
+  // "This week on the map": pin real current affairs to the countries they mention
+  useEffect(() => {
+    if (!affairsOn) { setAffairPins([]); return; }
+    setAffairsLoading(true);
+    fetch("/api/affairs", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: Array<{ title?: string; headline?: string; summary?: string; publishedAt?: string }>) => {
+        const weekAgo = Date.now() - 7 * 864e5;
+        const recent = Array.isArray(rows) ? rows.filter((a) => a.publishedAt && new Date(a.publishedAt).getTime() >= weekAgo) : [];
+        const counts = new Map<string, number>();
+        let located = 0;
+        for (const a of recent) {
+          const hits = matchCountries(`${a.title ?? a.headline ?? ""} ${a.summary ?? ""}`);
+          if (hits.length) located++;
+          for (const c of hits) counts.set(c, (counts.get(c) ?? 0) + 1);
+        }
+        const pins = [...counts.entries()]
+          .map(([name, count]) => { const co = countryCoord(name); return co ? { name, count, lat: co.lat, lng: co.lng } : null; })
+          .filter((p): p is AffairPin => p !== null);
+        setAffairPins(pins);
+        setAffairMeta({ total: recent.length, located, countries: pins.length });
+      })
+      .catch(() => setAffairPins([]))
+      .finally(() => setAffairsLoading(false));
+  }, [affairsOn]);
 
   const frozen = hovering !== null || selected !== null;
   // shift-click a second country → compare; otherwise normal select.
@@ -181,6 +214,7 @@ export default function CommandCenter() {
             activeGroup={activeGroup}
             exploreGroup={exploreGroup}
             compare={compare}
+            affairPins={affairPins}
           />
         </Suspense>
       </Canvas>
@@ -208,6 +242,9 @@ export default function CommandCenter() {
 
       {/* Standalone alliance-network explorer */}
       {arrived && <GroupingsExplorer value={exploreGroup} onPick={pickExplore} />}
+
+      {/* This week's current affairs, pinned to the map */}
+      {arrived && <AffairsControl on={affairsOn} loading={affairsLoading} onToggle={() => setAffairsOn((v) => !v)} meta={affairMeta} />}
 
       {/* Country dossier — hidden while comparing */}
       <CountryPanel
