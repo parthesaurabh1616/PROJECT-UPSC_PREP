@@ -7,13 +7,15 @@ import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { motion, AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 import Globe from "./Globe";
-import { Nodes, Arcs, Labels, Hotspots, GroupingEdges, AffairsPins, Satellites, RadarSweep, SpaceField, type CountrySelect, type AffairPin } from "./Layers";
+import { Nodes, Arcs, Labels, Hotspots, GroupingEdges, MapPins, Satellites, RadarSweep, SpaceField, type CountrySelect, type AffairPin } from "./Layers";
 import Hud from "./Hud";
 import CountryPanel from "./CountryPanel";
 import ComparePanel from "./ComparePanel";
 import GroupingsExplorer from "./GroupingsExplorer";
-import AffairsControl from "./AffairsControl";
+import MapOverlays from "./MapOverlays";
 import { matchCountries, countryCoord } from "@/lib/geo";
+
+type Overlay = "none" | "affairs" | "heat";
 
 const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -91,12 +93,13 @@ function Rig({ onArrived, focusDir, focusKey }: { onArrived: () => void; focusDi
   );
 }
 
-function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup, exploreGroup, compare, affairPins }: {
+function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup, exploreGroup, compare, overlayPins, overlayVariant, heatMax }: {
   onArrived: () => void; quality: "high" | "low"; frozen: boolean;
   focusDir: THREE.Vector3 | null; focusKey: string | null;
   onHover: (n: string | null) => void; onSelect: (s: CountrySelect, shift: boolean) => void;
   selectedName: string | null; activeGroup: string | null; exploreGroup: string | null;
-  compare: { a: string; b: string } | null; affairPins: AffairPin[];
+  compare: { a: string; b: string } | null;
+  overlayPins: AffairPin[]; overlayVariant: "affairs" | "heat"; heatMax: number;
 }) {
   return (
     <>
@@ -108,7 +111,7 @@ function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSele
         <Arcs />
         <Labels />
         <GroupingEdges selectedName={selectedName} active={activeGroup} exploreGroup={exploreGroup} compare={compare} />
-        {affairPins.length > 0 && <AffairsPins data={affairPins} onSelect={onSelect} onHover={onHover} />}
+        {overlayPins.length > 0 && <MapPins data={overlayPins} variant={overlayVariant} max={heatMax} onSelect={onSelect} onHover={onHover} />}
         <Hotspots onHover={onHover} onSelect={onSelect} />
       </Globe>
       <Satellites count={quality === "high" ? 16 : 8} />
@@ -131,10 +134,13 @@ export default function CommandCenter() {
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [exploreGroup, setExploreGroup] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<CountrySelect | null>(null);
-  const [affairsOn, setAffairsOn] = useState(false);
-  const [affairsLoading, setAffairsLoading] = useState(false);
+  const [overlay, setOverlay] = useState<Overlay>("none");
+  const [overlayLoading, setOverlayLoading] = useState(false);
   const [affairPins, setAffairPins] = useState<AffairPin[]>([]);
+  const [heatPins, setHeatPins] = useState<AffairPin[]>([]);
+  const [heatMax, setHeatMax] = useState(1);
   const [affairMeta, setAffairMeta] = useState({ total: 0, located: 0, countries: 0 });
+  const [heatMeta, setHeatMeta] = useState<{ total: number; countries: number; top: string | null }>({ total: 0, countries: 0, top: null });
   // Mirror selection in a ref — R3F event handlers can close over a stale
   // `selected`, so the shift-to-compare decision reads the ref, not state.
   const selectedRef = useRef<CountrySelect | null>(null);
@@ -148,8 +154,8 @@ export default function CommandCenter() {
 
   // "This week on the map": pin real current affairs to the countries they mention
   useEffect(() => {
-    if (!affairsOn) { setAffairPins([]); return; }
-    setAffairsLoading(true);
+    if (overlay !== "affairs") { setAffairPins([]); return; }
+    setOverlayLoading(true);
     fetch("/api/affairs", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: Array<{ title?: string; headline?: string; summary?: string; publishedAt?: string }>) => {
@@ -169,8 +175,23 @@ export default function CommandCenter() {
         setAffairMeta({ total: recent.length, located, countries: pins.length });
       })
       .catch(() => setAffairPins([]))
-      .finally(() => setAffairsLoading(false));
-  }, [affairsOn]);
+      .finally(() => setOverlayLoading(false));
+  }, [overlay]);
+
+  // "PYQ heat-map": how often each country appears in the decoded PYQ corpus
+  useEffect(() => {
+    if (overlay !== "heat") { setHeatPins([]); return; }
+    setOverlayLoading(true);
+    fetch("/api/pyq-geo", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { pins: [], total: 0, max: 0 }))
+      .then((d: { pins: AffairPin[]; total: number; max: number }) => {
+        setHeatPins(d.pins ?? []);
+        setHeatMax(d.max || 1);
+        setHeatMeta({ total: d.total ?? 0, countries: d.pins?.length ?? 0, top: d.pins?.[0]?.name ?? null });
+      })
+      .catch(() => setHeatPins([]))
+      .finally(() => setOverlayLoading(false));
+  }, [overlay]);
 
   const frozen = hovering !== null || selected !== null;
   // shift-click a second country → compare; otherwise normal select.
@@ -184,6 +205,7 @@ export default function CommandCenter() {
   };
   const pickExplore = (k: string | null) => { setExploreGroup(k); if (k) selectCountry(null); };
 
+  const overlayPins = overlay === "heat" ? heatPins : overlay === "affairs" ? affairPins : [];
   const compare = selected && compareB ? { a: selected.name, b: compareB.name } : null;
   const focusDir = compareB && selected ? selected.dir.clone().add(compareB.dir).normalize() : selected?.dir ?? null;
   const focusKey = compareB && selected ? `${selected.name}~${compareB.name}` : selected?.name ?? null;
@@ -214,7 +236,9 @@ export default function CommandCenter() {
             activeGroup={activeGroup}
             exploreGroup={exploreGroup}
             compare={compare}
-            affairPins={affairPins}
+            overlayPins={overlayPins}
+            overlayVariant={overlay === "heat" ? "heat" : "affairs"}
+            heatMax={heatMax}
           />
         </Suspense>
       </Canvas>
@@ -243,8 +267,8 @@ export default function CommandCenter() {
       {/* Standalone alliance-network explorer */}
       {arrived && <GroupingsExplorer value={exploreGroup} onPick={pickExplore} />}
 
-      {/* This week's current affairs, pinned to the map */}
-      {arrived && <AffairsControl on={affairsOn} loading={affairsLoading} onToggle={() => setAffairsOn((v) => !v)} meta={affairMeta} />}
+      {/* Map overlays — current affairs / PYQ heat-map */}
+      {arrived && <MapOverlays mode={overlay} loading={overlayLoading} onMode={setOverlay} affairs={affairMeta} heat={heatMeta} />}
 
       {/* Country dossier — hidden while comparing */}
       <CountryPanel

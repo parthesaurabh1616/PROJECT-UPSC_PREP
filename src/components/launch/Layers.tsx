@@ -213,10 +213,14 @@ export function Hotspots({ onHover, onSelect }: { onHover: (n: string | null) =>
   );
 }
 
-/* ════════════ Current-affairs pins — this week's news, placed on the map ════════════ */
+/* ════════════ Data pins — current affairs (this week) or PYQ heat-map ════════════ */
 export interface AffairPin { name: string; count: number; lat: number; lng: number }
-export function AffairsPins({ data, onSelect, onHover }: {
+const HEAT_LO = new THREE.Color("#3aa0ff"), HEAT_MID = new THREE.Color("#ffcf4d"), HEAT_HI = new THREE.Color("#ff4d4d");
+const heatColor = (t: number) => (t < 0.5 ? HEAT_LO.clone().lerp(HEAT_MID, t * 2) : HEAT_MID.clone().lerp(HEAT_HI, (t - 0.5) * 2));
+
+export function MapPins({ data, onSelect, onHover, variant = "affairs", max = 1 }: {
   data: AffairPin[]; onSelect: (s: CountrySelect, shift: boolean) => void; onHover: (n: string | null) => void;
+  variant?: "affairs" | "heat"; max?: number;
 }) {
   const root = useRef<THREE.Group>(null);
   const bill = useRef<(THREE.Group | null)[]>([]);
@@ -235,34 +239,40 @@ export function AffairsPins({ data, onSelect, onHover }: {
       g.getWorldPosition(tmp.wp); tmp.n.copy(tmp.wp).normalize(); tmp.v.copy(camera.position).sub(tmp.wp).normalize();
       g.visible = tmp.n.dot(tmp.v) > 0.1;
       const d = dots.current[i];
-      if (d) d.scale.setScalar(1 + 0.35 * Math.sin(t * 3 + i));
+      if (d) d.scale.setScalar(1 + 0.3 * Math.sin(t * 3 + i));
     }
   });
 
   return (
     <group ref={root}>
-      {data.map((p, i) => (
-        <group key={p.name} position={latLngToVector3(p.lat, p.lng, 1.02)}>
-          <mesh
-            onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(p.name); document.body.style.cursor = "pointer"; }}
-            onPointerOut={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(null); document.body.style.cursor = "default"; }}
-            onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); const v = new THREE.Vector3(); (e.object as THREE.Object3D).getWorldPosition(v); onSelect({ name: p.name, kind: "country", dir: v.normalize() }, e.nativeEvent.shiftKey); }}
-          >
-            <sphereGeometry args={[0.03, 12, 12]} />
-            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-          </mesh>
-          <group ref={(el) => { bill.current[i] = el; }}>
-            <mesh ref={(el) => { dots.current[i] = el; }}>
-              <sphereGeometry args={[0.013, 12, 12]} />
-              <meshBasicMaterial color="#ff9a3c" blending={THREE.AdditiveBlending} transparent depthWrite={false} />
+      {data.map((p, i) => {
+        const t = Math.min(p.count / Math.max(1, max), 1);
+        const heat = variant === "heat";
+        const color = heat ? `#${heatColor(t).getHexString()}` : "#ff9a3c";
+        const size = heat ? 0.011 + 0.024 * t : 0.013;
+        return (
+          <group key={p.name} position={latLngToVector3(p.lat, p.lng, 1.02)}>
+            <mesh
+              onPointerOver={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(p.name); document.body.style.cursor = "pointer"; }}
+              onPointerOut={(e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); onHover(null); document.body.style.cursor = "default"; }}
+              onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); const v = new THREE.Vector3(); (e.object as THREE.Object3D).getWorldPosition(v); onSelect({ name: p.name, kind: "country", dir: v.normalize() }, e.nativeEvent.shiftKey); }}
+            >
+              <sphereGeometry args={[0.03, 12, 12]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
-            <Text position={[0, 0.05, 0]} font={LABEL_FONT} fontSize={0.03} color="#ffd6a0" anchorX="center" anchorY="middle"
-              outlineWidth={0.004} outlineColor="#1a0e00" renderOrder={12} material-transparent material-depthTest={false} material-depthWrite={false}>
-              {String(p.count)}
-            </Text>
+            <group ref={(el) => { bill.current[i] = el; }}>
+              <mesh ref={(el) => { dots.current[i] = el; }}>
+                <sphereGeometry args={[size, 12, 12]} />
+                <meshBasicMaterial color={color} blending={THREE.AdditiveBlending} transparent depthWrite={false} />
+              </mesh>
+              <Text position={[0, 0.05, 0]} font={LABEL_FONT} fontSize={0.03} color={heat ? "#fff" : "#ffd6a0"} anchorX="center" anchorY="middle"
+                outlineWidth={0.004} outlineColor="#0a0f18" renderOrder={12} material-transparent material-depthTest={false} material-depthWrite={false}>
+                {String(p.count)}
+              </Text>
+            </group>
           </group>
-        </group>
-      ))}
+        );
+      })}
     </group>
   );
 }
