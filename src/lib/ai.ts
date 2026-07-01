@@ -449,9 +449,10 @@ async function generateFromPdf(pdfPath: string, systemInstruction: string, userT
   const sizeMb = fs.statSync(pdfPath).size / (1024 * 1024);
   const model = getGenAI().getGenerativeModel({
     model: "gemini-2.5-flash",
-    // JSON mode → always valid JSON (no fence-stripping needed); high ceiling
-    // so a 100-question prelims paper is never truncated mid-array.
-    generationConfig: { responseMimeType: "application/json", maxOutputTokens: 32768, temperature: 0.2 },
+    // JSON mode → always valid JSON (no fence-stripping needed); max ceiling
+    // so a 100-question prelims paper (4 OCR'd options each) is never
+    // truncated mid-array, which would make the JSON unparseable.
+    generationConfig: { responseMimeType: "application/json", maxOutputTokens: 65536, temperature: 0.2 },
   });
 
   try {
