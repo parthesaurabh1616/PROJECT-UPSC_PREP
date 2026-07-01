@@ -10,6 +10,7 @@ import Globe from "./Globe";
 import { Nodes, Arcs, Labels, Hotspots, GroupingEdges, Satellites, RadarSweep, SpaceField, type CountrySelect } from "./Layers";
 import Hud from "./Hud";
 import CountryPanel from "./CountryPanel";
+import ComparePanel from "./ComparePanel";
 import GroupingsExplorer from "./GroupingsExplorer";
 
 const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -88,11 +89,12 @@ function Rig({ onArrived, focusDir, focusKey }: { onArrived: () => void; focusDi
   );
 }
 
-function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup, exploreGroup }: {
+function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup, exploreGroup, compare }: {
   onArrived: () => void; quality: "high" | "low"; frozen: boolean;
   focusDir: THREE.Vector3 | null; focusKey: string | null;
-  onHover: (n: string | null) => void; onSelect: (s: CountrySelect) => void;
+  onHover: (n: string | null) => void; onSelect: (s: CountrySelect, shift: boolean) => void;
   selectedName: string | null; activeGroup: string | null; exploreGroup: string | null;
+  compare: { a: string; b: string } | null;
 }) {
   return (
     <>
@@ -103,7 +105,7 @@ function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSele
         <Nodes />
         <Arcs />
         <Labels />
-        <GroupingEdges selectedName={selectedName} active={activeGroup} exploreGroup={exploreGroup} />
+        <GroupingEdges selectedName={selectedName} active={activeGroup} exploreGroup={exploreGroup} compare={compare} />
         <Hotspots onHover={onHover} onSelect={onSelect} />
       </Globe>
       <Satellites count={quality === "high" ? 16 : 8} />
@@ -125,6 +127,11 @@ export default function CommandCenter() {
   const [selected, setSelected] = useState<CountrySelect | null>(null);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [exploreGroup, setExploreGroup] = useState<string | null>(null);
+  const [compareB, setCompareB] = useState<CountrySelect | null>(null);
+  // Mirror selection in a ref — R3F event handlers can close over a stale
+  // `selected`, so the shift-to-compare decision reads the ref, not state.
+  const selectedRef = useRef<CountrySelect | null>(null);
+  selectedRef.current = selected;
 
   useEffect(() => {
     const small = window.matchMedia("(max-width: 820px)").matches;
@@ -133,9 +140,20 @@ export default function CommandCenter() {
   }, []);
 
   const frozen = hovering !== null || selected !== null;
-  // country selection and the standalone explorer are mutually exclusive
-  const selectCountry = (s: CountrySelect | null) => { setSelected(s); setActiveGroup(null); if (s) setExploreGroup(null); };
+  // shift-click a second country → compare; otherwise normal select.
+  // Country selection and the standalone explorer are mutually exclusive.
+  const selectCountry = (s: CountrySelect | null, shift = false) => {
+    const prev = selectedRef.current;
+    if (s && shift && prev && s.kind === "country" && prev.kind === "country" && s.name !== prev.name) {
+      setCompareB(s); setExploreGroup(null); setActiveGroup(null); return;
+    }
+    setSelected(s); setCompareB(null); setActiveGroup(null); if (s) setExploreGroup(null);
+  };
   const pickExplore = (k: string | null) => { setExploreGroup(k); if (k) selectCountry(null); };
+
+  const compare = selected && compareB ? { a: selected.name, b: compareB.name } : null;
+  const focusDir = compareB && selected ? selected.dir.clone().add(compareB.dir).normalize() : selected?.dir ?? null;
+  const focusKey = compareB && selected ? `${selected.name}~${compareB.name}` : selected?.name ?? null;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#02060d]">
@@ -155,13 +173,14 @@ export default function CommandCenter() {
             onArrived={() => setArrived(true)}
             quality={quality}
             frozen={frozen}
-            focusDir={selected?.dir ?? null}
-            focusKey={selected?.name ?? null}
+            focusDir={focusDir}
+            focusKey={focusKey}
             onHover={setHovering}
             onSelect={selectCountry}
             selectedName={selected?.name ?? null}
             activeGroup={activeGroup}
             exploreGroup={exploreGroup}
+            compare={compare}
           />
         </Suspense>
       </Canvas>
@@ -190,13 +209,16 @@ export default function CommandCenter() {
       {/* Standalone alliance-network explorer */}
       {arrived && <GroupingsExplorer value={exploreGroup} onPick={pickExplore} />}
 
-      {/* Country dossier — slides in on select, real platform data */}
+      {/* Country dossier — hidden while comparing */}
       <CountryPanel
-        selected={selected}
+        selected={compareB ? null : selected}
         onClose={() => selectCountry(null)}
         activeGroup={activeGroup}
         onToggleGroup={(k) => setActiveGroup((cur) => (cur === k ? null : k))}
       />
+
+      {/* Bilateral comparison — shift-click a second country */}
+      <ComparePanel a={selected} b={compareB} onBack={() => setCompareB(null)} onClose={() => selectCountry(null)} />
     </div>
   );
 }

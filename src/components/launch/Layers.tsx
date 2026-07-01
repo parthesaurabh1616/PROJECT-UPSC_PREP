@@ -157,7 +157,7 @@ export interface CountrySelect { name: string; kind: "country" | "choke"; dir: T
 
 function Hotspot({ name, lat, lng, kind, onHover, onSelect }: {
   name: string; lat: number; lng: number; kind: "country" | "choke";
-  onHover: (n: string | null) => void; onSelect: (s: CountrySelect) => void;
+  onHover: (n: string | null) => void; onSelect: (s: CountrySelect, shift: boolean) => void;
 }) {
   const ref = useRef<THREE.Mesh>(null);
   const [hov, setHov] = useState(false);
@@ -180,7 +180,7 @@ function Hotspot({ name, lat, lng, kind, onHover, onSelect }: {
           e.stopPropagation();
           const v = new THREE.Vector3();
           ref.current?.getWorldPosition(v);
-          onSelect({ name, kind, dir: v.normalize() });
+          onSelect({ name, kind, dir: v.normalize() }, e.nativeEvent.shiftKey);
         }}
       >
         <sphereGeometry args={[0.03, 12, 12]} />
@@ -196,7 +196,7 @@ function Hotspot({ name, lat, lng, kind, onHover, onSelect }: {
   );
 }
 
-export function Hotspots({ onHover, onSelect }: { onHover: (n: string | null) => void; onSelect: (s: CountrySelect) => void }) {
+export function Hotspots({ onHover, onSelect }: { onHover: (n: string | null) => void; onSelect: (s: CountrySelect, shift: boolean) => void }) {
   const spots = useMemo(
     () => [
       ...GEO_LABELS.filter((g) => g.tier === "country").map((g) => ({ name: g.text, lat: g.lat, lng: g.lng, kind: "country" as const })),
@@ -215,10 +215,23 @@ export function Hotspots({ onHover, onSelect }: { onHover: (n: string | null) =>
 
 /* ════════════ Knowledge-graph edges — groupings, with travelling packets ════════════ */
 type Arc = { pts: THREE.Vector3[]; color: string };
-export function GroupingEdges({ selectedName, active, exploreGroup }: { selectedName: string | null; active: string | null; exploreGroup: string | null }) {
+export function GroupingEdges({ selectedName, active, exploreGroup, compare }: { selectedName: string | null; active: string | null; exploreGroup: string | null; compare: { a: string; b: string } | null }) {
   const data = useMemo(() => {
     const arcs: Arc[] = [];
     const dots = new Map<string, { pos: THREE.Vector3; color: string }>();
+
+    // ── Compare mode: bilateral corridor + one arc per shared grouping ──
+    if (compare) {
+      const A = countryCoord(compare.a), B = countryCoord(compare.b);
+      if (A && B) {
+        arcs.push({ pts: greatCircleArc([A.lat, A.lng], [B.lat, B.lng], 52, 0.16), color: "#dff1ff" }); // corridor
+        const shared = GROUPINGS.filter((g) => g.members.includes(compare.a) && g.members.includes(compare.b));
+        shared.forEach((g, i) => arcs.push({ pts: greatCircleArc([A.lat, A.lng], [B.lat, B.lng], 52, 0.28 + i * 0.12), color: g.color }));
+        dots.set(compare.a, { pos: latLngToVector3(A.lat, A.lng, 1.02), color: "#dff1ff" });
+        dots.set(compare.b, { pos: latLngToVector3(B.lat, B.lng, 1.02), color: "#dff1ff" });
+      }
+      return { arcs, dots: [...dots.values()] };
+    }
 
     // ── Explore mode: light up an entire grouping as a ring of members ──
     if (exploreGroup) {
@@ -251,9 +264,9 @@ export function GroupingEdges({ selectedName, active, exploreGroup }: { selected
       }
     }
     return { arcs, dots: [...dots.values()] };
-  }, [selectedName, active, exploreGroup]);
+  }, [selectedName, active, exploreGroup, compare]);
 
-  const focused = !!active || !!exploreGroup;
+  const focused = !!active || !!exploreGroup || !!compare;
   const packetCount = Math.min(data.arcs.length, 26);
   const arcsRef = useRef<Arc[]>(data.arcs);
   arcsRef.current = data.arcs;

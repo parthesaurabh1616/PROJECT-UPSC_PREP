@@ -101,7 +101,7 @@ export default function CountryPanel({ selected, onClose, activeGroup, onToggleG
           </div>
 
           <div className="border-t border-[#173049]/70 px-5 py-2.5 text-center font-mono text-[8.5px] uppercase tracking-[0.24em] text-[#3f6b8f]">
-            click the globe or × to close
+            shift-click another country to compare · × to close
           </div>
         </motion.aside>
       )}
