@@ -213,15 +213,34 @@ export function Hotspots({ onHover, onSelect }: { onHover: (n: string | null) =>
   );
 }
 
-/* ════════════ Knowledge-graph edges — groupings of the selected country ════════════ */
-export function GroupingEdges({ selectedName, active }: { selectedName: string | null; active: string | null }) {
+/* ════════════ Knowledge-graph edges — groupings, with travelling packets ════════════ */
+type Arc = { pts: THREE.Vector3[]; color: string };
+export function GroupingEdges({ selectedName, active, exploreGroup }: { selectedName: string | null; active: string | null; exploreGroup: string | null }) {
   const data = useMemo(() => {
-    if (!selectedName) return { arcs: [] as { pts: THREE.Vector3[]; color: string }[], dots: [] as { pos: THREE.Vector3; color: string }[] };
-    const src = countryCoord(selectedName);
-    if (!src) return { arcs: [], dots: [] };
-    const groups = GROUPINGS.filter((g) => g.members.includes(selectedName) && (!active || g.key === active));
-    const arcs: { pts: THREE.Vector3[]; color: string }[] = [];
+    const arcs: Arc[] = [];
     const dots = new Map<string, { pos: THREE.Vector3; color: string }>();
+
+    // ── Explore mode: light up an entire grouping as a ring of members ──
+    if (exploreGroup) {
+      const g = GROUPINGS.find((x) => x.key === exploreGroup);
+      if (!g) return { arcs, dots: [] };
+      const mem = g.members
+        .map((m) => ({ name: m, c: countryCoord(m) }))
+        .filter((x): x is { name: string; c: { lat: number; lng: number } } => !!x.c)
+        .sort((a, b) => a.c.lng - b.c.lng);
+      for (let i = 0; i < mem.length; i++) {
+        const a = mem[i].c, b = mem[(i + 1) % mem.length].c;
+        arcs.push({ pts: greatCircleArc([a.lat, a.lng], [b.lat, b.lng], 40, 0.26), color: g.color });
+        dots.set(mem[i].name, { pos: latLngToVector3(a.lat, a.lng, 1.02), color: g.color });
+      }
+      return { arcs, dots: [...dots.values()] };
+    }
+
+    // ── Country mode: star from the selected country to its co-members ──
+    if (!selectedName) return { arcs, dots: [] };
+    const src = countryCoord(selectedName);
+    if (!src) return { arcs, dots: [] };
+    const groups = GROUPINGS.filter((g) => g.members.includes(selectedName) && (!active || g.key === active));
     for (const g of groups) {
       for (const m of g.members) {
         if (m === selectedName) continue;
@@ -232,17 +251,45 @@ export function GroupingEdges({ selectedName, active }: { selectedName: string |
       }
     }
     return { arcs, dots: [...dots.values()] };
-  }, [selectedName, active]);
+  }, [selectedName, active, exploreGroup]);
+
+  const focused = !!active || !!exploreGroup;
+  const packetCount = Math.min(data.arcs.length, 26);
+  const arcsRef = useRef<Arc[]>(data.arcs);
+  arcsRef.current = data.arcs;
+  const pRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const vtmp = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const a = arcsRef.current;
+    for (let i = 0; i < packetCount; i++) {
+      const arc = a[i];
+      const m = pRefs.current[i];
+      if (!arc || !m) continue;
+      const seg = (t * 0.16 + i * 0.11) % 1;
+      const f = seg * (arc.pts.length - 1);
+      const idx = Math.floor(f);
+      const nxt = arc.pts[idx + 1] || arc.pts[idx];
+      m.position.copy(vtmp.copy(arc.pts[idx]).lerp(nxt, f - idx));
+    }
+  });
 
   return (
     <group>
       {data.arcs.map((a, i) => (
-        <Line key={i} points={a.pts} color={a.color} lineWidth={active ? 1.6 : 1} transparent opacity={active ? 0.85 : 0.42} />
+        <Line key={i} points={a.pts} color={a.color} lineWidth={focused ? 1.6 : 1} transparent opacity={focused ? 0.85 : 0.42} />
       ))}
       {data.dots.map((d, i) => (
         <mesh key={i} position={d.pos} renderOrder={9}>
           <sphereGeometry args={[0.013, 10, 10]} />
           <meshBasicMaterial color={d.color} transparent blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+      ))}
+      {Array.from({ length: packetCount }).map((_, i) => (
+        <mesh key={`p${i}`} ref={(el) => { pRefs.current[i] = el; }} renderOrder={10}>
+          <sphereGeometry args={[0.009, 8, 8]} />
+          <meshBasicMaterial color={data.arcs[i]?.color || "#ffffff"} transparent blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
       ))}
     </group>
