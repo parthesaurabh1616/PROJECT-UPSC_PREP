@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, type ReactNode } from "react";
+import { useMemo, useRef, type ReactNode, type MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
@@ -86,7 +86,7 @@ const atmoFrag = /* glsl */ `
   }
 `;
 
-export default function Globe({ children, frozen = false }: { children?: ReactNode; frozen?: boolean }) {
+export default function Globe({ children, frozen = false, quatRef }: { children?: ReactNode; frozen?: boolean; quatRef?: MutableRefObject<THREE.Quaternion> }) {
   const [dayMap, nightMap, cloudMap, specMap] = useTexture([
     "/textures/earth/earth_atmos_2048.jpg",
     "/textures/earth/earth_lights_2048.png",
@@ -143,6 +143,7 @@ export default function Globe({ children, frozen = false }: { children?: ReactNo
   useFrame((_, dt) => {
     if (spin.current && !frozen) spin.current.rotation.y += dt * 0.025;
     if (clouds.current) clouds.current.rotation.y += dt * 0.009; // clouds always drift
+    if (spin.current && quatRef) spin.current.getWorldQuaternion(quatRef.current); // expose live orientation
   });
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
@@ -13,7 +13,8 @@ import CountryPanel from "./CountryPanel";
 import ComparePanel from "./ComparePanel";
 import GroupingsExplorer from "./GroupingsExplorer";
 import MapOverlays from "./MapOverlays";
-import { matchCountries, countryCoord } from "@/lib/geo";
+import DailyFocus from "./DailyFocus";
+import { matchCountries, countryCoord, latLngToVector3 } from "@/lib/geo";
 
 type Overlay = "none" | "affairs" | "heat";
 type HeatStage = "all" | "prelims" | "mains";
@@ -95,20 +96,21 @@ function Rig({ onArrived, focusDir, focusKey }: { onArrived: () => void; focusDi
   );
 }
 
-function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup, exploreGroup, compare, overlayPins, overlayVariant, heatMax }: {
+function Scene({ onArrived, quality, frozen, focusDir, focusKey, onHover, onSelect, selectedName, activeGroup, exploreGroup, compare, overlayPins, overlayVariant, heatMax, quatRef }: {
   onArrived: () => void; quality: "high" | "low"; frozen: boolean;
   focusDir: THREE.Vector3 | null; focusKey: string | null;
   onHover: (n: string | null) => void; onSelect: (s: CountrySelect, shift: boolean) => void;
   selectedName: string | null; activeGroup: string | null; exploreGroup: string | null;
   compare: { a: string; b: string } | null;
   overlayPins: AffairPin[]; overlayVariant: "affairs" | "heat"; heatMax: number;
+  quatRef: MutableRefObject<THREE.Quaternion>;
 }) {
   return (
     <>
       <color attach="background" args={["#02060d"]} />
       <fog attach="fog" args={["#02060d", 8, 16]} />
       <SpaceField />
-      <Globe frozen={frozen}>
+      <Globe frozen={frozen} quatRef={quatRef}>
         <Nodes />
         <Arcs />
         <Labels />
@@ -146,6 +148,8 @@ export default function CommandCenter() {
   // `selected`, so the shift-to-compare decision reads the ref, not state.
   const selectedRef = useRef<CountrySelect | null>(null);
   selectedRef.current = selected;
+  // live globe orientation, so a DOM-driven fly-to lands on the right spot
+  const globeQuat = useRef(new THREE.Quaternion());
 
   useEffect(() => {
     const small = window.matchMedia("(max-width: 820px)").matches;
@@ -212,6 +216,14 @@ export default function CommandCenter() {
   };
   const pickExplore = (k: string | null) => { setExploreGroup(k); if (k) selectCountry(null); };
 
+  // DOM-driven selection (Daily Focus): rotate the base coord into current world space
+  const focusCountryByName = (name: string) => {
+    const co = countryCoord(name);
+    if (!co) return;
+    const dir = latLngToVector3(co.lat, co.lng, 1).applyQuaternion(globeQuat.current).normalize();
+    selectCountry({ name, kind: "country", dir });
+  };
+
   const overlayPins = overlay === "heat" ? heatPins : overlay === "affairs" ? affairPins : [];
   const compare = selected && compareB ? { a: selected.name, b: compareB.name } : null;
   const focusDir = compareB && selected ? selected.dir.clone().add(compareB.dir).normalize() : selected?.dir ?? null;
@@ -246,6 +258,7 @@ export default function CommandCenter() {
             overlayPins={overlayPins}
             overlayVariant={overlay === "heat" ? "heat" : "affairs"}
             heatMax={heatMax}
+            quatRef={globeQuat}
           />
         </Suspense>
       </Canvas>
@@ -276,6 +289,9 @@ export default function CommandCenter() {
 
       {/* Map overlays — current affairs / PYQ heat-map */}
       {arrived && <MapOverlays mode={overlay} loading={overlayLoading} onMode={setOverlay} affairs={affairMeta} heat={heatMeta} heatStage={heatStage} onHeatStage={setHeatStage} />}
+
+      {/* Daily country focus — hidden while a dossier/comparison is open */}
+      {arrived && !selected && !compareB && <DailyFocus onFocus={focusCountryByName} />}
 
       {/* Country dossier — hidden while comparing */}
       <CountryPanel
