@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
@@ -16,6 +16,8 @@ import MapOverlays from "./MapOverlays";
 import { matchCountries, countryCoord } from "@/lib/geo";
 
 type Overlay = "none" | "affairs" | "heat";
+type HeatStage = "all" | "prelims" | "mains";
+type HeatAgg = { name: string; lat: number; lng: number; all: number; prelims: number; mains: number };
 
 const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -137,10 +139,9 @@ export default function CommandCenter() {
   const [overlay, setOverlay] = useState<Overlay>("none");
   const [overlayLoading, setOverlayLoading] = useState(false);
   const [affairPins, setAffairPins] = useState<AffairPin[]>([]);
-  const [heatPins, setHeatPins] = useState<AffairPin[]>([]);
-  const [heatMax, setHeatMax] = useState(1);
+  const [heatRaw, setHeatRaw] = useState<{ pins: HeatAgg[]; totals: Record<HeatStage, number> } | null>(null);
+  const [heatStage, setHeatStage] = useState<HeatStage>("all");
   const [affairMeta, setAffairMeta] = useState({ total: 0, located: 0, countries: 0 });
-  const [heatMeta, setHeatMeta] = useState<{ total: number; countries: number; top: string | null }>({ total: 0, countries: 0, top: null });
   // Mirror selection in a ref — R3F event handlers can close over a stale
   // `selected`, so the shift-to-compare decision reads the ref, not state.
   const selectedRef = useRef<CountrySelect | null>(null);
@@ -180,18 +181,24 @@ export default function CommandCenter() {
 
   // "PYQ heat-map": how often each country appears in the decoded PYQ corpus
   useEffect(() => {
-    if (overlay !== "heat") { setHeatPins([]); return; }
+    if (overlay !== "heat") { setHeatRaw(null); return; }
     setOverlayLoading(true);
     fetch("/api/pyq-geo", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : { pins: [], total: 0, max: 0 }))
-      .then((d: { pins: AffairPin[]; total: number; max: number }) => {
-        setHeatPins(d.pins ?? []);
-        setHeatMax(d.max || 1);
-        setHeatMeta({ total: d.total ?? 0, countries: d.pins?.length ?? 0, top: d.pins?.[0]?.name ?? null });
-      })
-      .catch(() => setHeatPins([]))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { pins: HeatAgg[]; totals: Record<HeatStage, number> } | null) => setHeatRaw(d))
+      .catch(() => setHeatRaw(null))
       .finally(() => setOverlayLoading(false));
   }, [overlay]);
+
+  // Derive the displayed heat pins for the selected exam stage
+  const { heatPins, heatMax, heatMeta } = useMemo(() => {
+    if (!heatRaw) return { heatPins: [] as AffairPin[], heatMax: 1, heatMeta: { total: 0, countries: 0, top: null as string | null } };
+    const pins = heatRaw.pins
+      .map((p) => ({ name: p.name, lat: p.lat, lng: p.lng, count: p[heatStage] }))
+      .filter((p) => p.count > 0)
+      .sort((a, b) => b.count - a.count);
+    return { heatPins: pins, heatMax: pins[0]?.count ?? 1, heatMeta: { total: heatRaw.totals[heatStage], countries: pins.length, top: pins[0]?.name ?? null } };
+  }, [heatRaw, heatStage]);
 
   const frozen = hovering !== null || selected !== null;
   // shift-click a second country → compare; otherwise normal select.
@@ -268,7 +275,7 @@ export default function CommandCenter() {
       {arrived && <GroupingsExplorer value={exploreGroup} onPick={pickExplore} />}
 
       {/* Map overlays — current affairs / PYQ heat-map */}
-      {arrived && <MapOverlays mode={overlay} loading={overlayLoading} onMode={setOverlay} affairs={affairMeta} heat={heatMeta} />}
+      {arrived && <MapOverlays mode={overlay} loading={overlayLoading} onMode={setOverlay} affairs={affairMeta} heat={heatMeta} heatStage={heatStage} onHeatStage={setHeatStage} />}
 
       {/* Country dossier — hidden while comparing */}
       <CountryPanel
