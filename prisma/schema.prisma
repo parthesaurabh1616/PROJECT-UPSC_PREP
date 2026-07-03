@@ -119,6 +119,7 @@ model User {
   caReads       CaRead[]
   mainsAnswers  MainsAnswer[]
   testAttempts  TestAttempt[]
+  sprints       Sprint[]
 
   @@map("users")
 }
@@ -467,6 +468,39 @@ model Task {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("tasks")
+}
+
+// ── Sprint Board (Agile program OS) ───────────────────────────
+model Sprint {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal      String
+  startsAt  DateTime
+  endsAt    DateTime
+  retro     String?              // sprint retrospective, written at review
+  createdAt DateTime @default(now())
+  tasks     SprintTask[]
+
+  @@index([userId, startsAt])
+  @@map("sprints")
+}
+
+model SprintTask {
+  id        String   @id @default(cuid())
+  sprintId  String
+  sprint    Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  title     String
+  // metric-bound tasks auto-track progress from the activity ledger on read
+  // (never stored): answers | pyq | ncert | ca | revision | focus | tests | notes.
+  // "manual" = plain checkbox.
+  metric    String   @default("manual")
+  target    Int      @default(1)
+  done      Boolean  @default(false) // manual tasks only
+  createdAt DateTime @default(now())
+
+  @@index([sprintId])
+  @@map("sprint_tasks")
 }
 
 // ── Current Affairs ───────────────────────────────────────────

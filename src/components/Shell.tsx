@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale,
+  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale, Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -28,6 +28,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     items: [
       { label: "Dashboard",       href: "/command",        icon: LayoutDashboard },
       { label: "Command Center",  href: "/exam",            icon: Command },
+      { label: "Sprint Board",    href: "/program",         icon: Rocket },
       { label: "Weekly Review",   href: "/review",          icon: CalendarRange },
       { label: "AI Mentor",       href: "/mentor",          icon: Sparkles, badge: "AI" },
       { label: "Notes",           href: "/notes",           icon: FileText },
@@ -49,6 +50,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
 const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/command":         { eyebrow: "COMMAND CENTER",    title: "Dashboard" },
   "/exam":            { eyebrow: "EXAM INTELLIGENCE",  title: "UPSC Command Center" },
+  "/program":         { eyebrow: "PROGRAM OS",          title: "Sprint Board" },
   "/review":          { eyebrow: "WEEKLY REVIEW",      title: "Your Week" },
   "/mentor":          { eyebrow: "AI MENTOR",          title: "Strategist" },
   "/notes":           { eyebrow: "KNOWLEDGE VAULT",    title: "Notes" },
