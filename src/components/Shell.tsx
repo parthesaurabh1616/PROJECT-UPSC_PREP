@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale, Rocket,
+  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale, Rocket, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -151,12 +151,28 @@ export function Shell({ children }: { children: ReactNode }) {
   const pathname       = usePathname();
   const { theme, toggle } = useTheme();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const meta = PAGE_META[pathname] ?? { eyebrow: "CONQUER CAPITAL", title: "Workspace" };
+
+  // restore the user's sidebar preference (after mount — SSR renders expanded)
+  useEffect(() => {
+    if (localStorage.getItem("cc-sidebar-collapsed") === "1") setCollapsed(true);
+  }, []);
+  const toggleSidebar = () => {
+    setCollapsed((v) => {
+      localStorage.setItem("cc-sidebar-collapsed", v ? "0" : "1");
+      return !v;
+    });
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPaletteOpen((v) => !v); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setCollapsed((v) => { localStorage.setItem("cc-sidebar-collapsed", v ? "0" : "1"); return !v; });
+      }
       if (e.key === "Escape") setPaletteOpen(false);
     };
     window.addEventListener("keydown", onKey);
@@ -164,49 +180,58 @@ export function Shell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="relative z-[1] grid h-screen grid-cols-[240px_1fr] grid-rows-[56px_1fr] overflow-hidden">
+    <div className={cn(
+      "relative z-[1] grid h-screen grid-rows-[56px_1fr] overflow-hidden transition-[grid-template-columns] duration-300",
+      collapsed ? "grid-cols-[60px_1fr]" : "grid-cols-[240px_1fr]",
+    )}>
 
       {/* ── SIDEBAR ── */}
-      <aside className="row-span-2 flex flex-col overflow-y-auto border-r border-line bg-surface/60 px-3 py-4 backdrop-blur-xl">
+      <aside className={cn("row-span-2 flex flex-col overflow-y-auto overflow-x-hidden border-r border-line bg-surface/60 py-4 backdrop-blur-xl", collapsed ? "px-2" : "px-3")}>
 
-        <Link href="/command" className="mb-4 flex items-center gap-2.5 border-b border-line-subtle px-2 pb-4">
+        <Link href="/command" title="Conquer Capital"
+          className={cn("mb-4 flex items-center border-b border-line-subtle pb-4", collapsed ? "justify-center px-0" : "gap-2.5 px-2")}>
           <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-gradient-to-br from-accent/30 via-accent-2/30 to-analyt/30 font-display text-[13px] font-bold text-ink">
             <span className="relative z-10">CC</span>
             <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent/20 to-accent-2/20 blur-md" />
           </span>
-          <div>
-            <p className="font-display text-[14px] font-semibold tracking-tight text-ink leading-none">
-              Conquer <span className="text-accent">Capital</span>
-            </p>
-            <p className="mt-1 font-mono text-[8.5px] uppercase tracking-[0.22em] text-ink-3">
-              <StatusDot variant="green" className="mr-1" /> conquercapital.in
-            </p>
-          </div>
+          {!collapsed && (
+            <div>
+              <p className="font-display text-[14px] font-semibold tracking-tight text-ink leading-none">
+                Conquer <span className="text-accent">Capital</span>
+              </p>
+              <p className="mt-1 font-mono text-[8.5px] uppercase tracking-[0.22em] text-ink-3">
+                <StatusDot variant="green" className="mr-1" /> conquercapital.in
+              </p>
+            </div>
+          )}
         </Link>
 
         {/* Exam switcher — UPSC / MPSC / future PCS */}
-        <ExamSwitcher />
+        {!collapsed && <ExamSwitcher />}
 
         <nav className="flex-1">
           {NAV.map((group) => (
             <div key={group.section} className="mb-2">
-              <p className="px-2.5 pb-1.5 pt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-ink-3">
-                {group.section}
-              </p>
+              {!collapsed && (
+                <p className="px-2.5 pb-1.5 pt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-ink-3">
+                  {group.section}
+                </p>
+              )}
               <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const active = pathname === item.href;
                   const Icon   = item.icon;
                   return (
-                    <Link key={item.label} href={item.href}
+                    <Link key={item.label} href={item.href} title={collapsed ? item.label : undefined}
                       className={cn(
-                        "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 font-mono text-[11px] uppercase tracking-[0.14em] transition-all",
+                        "group relative flex items-center rounded-lg py-2 font-mono text-[11px] uppercase tracking-[0.14em] transition-all",
+                        collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
                         active ? "bg-gradient-to-r from-accent/14 to-transparent text-ink" : "text-ink-2 hover:bg-surface-2/60 hover:text-ink",
                       )}>
-                      {active && <span className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-gradient-to-b from-accent to-gold" />}
-                      <Icon size={14} className={cn("shrink-0", active ? "text-accent" : "opacity-60")} />
-                      <span className="truncate">{item.label}</span>
-                      {item.badge && (
+                      {active && <span className={cn("absolute top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-gradient-to-b from-accent to-gold", collapsed ? "-left-2" : "-left-3")} />}
+                      <Icon size={collapsed ? 16 : 14} className={cn("shrink-0", active ? "text-accent" : "opacity-60")} />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                      {!collapsed && item.badge && (
                         <span className="ml-auto rounded border border-analyt/40 bg-analyt/10 px-1.5 py-[1px] font-mono text-[8px] font-bold tracking-wider text-analyt">
                           {item.badge}
                         </span>
@@ -220,12 +245,32 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-line-subtle pt-3">
-          <StreakBadge />
+          {!collapsed && <StreakBadge />}
+          <button
+            onClick={toggleSidebar}
+            title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
+            className={cn(
+              "mt-2 flex w-full items-center rounded-lg border border-line bg-surface-2/40 py-2 font-mono text-[9.5px] uppercase tracking-[0.16em] text-ink-3 transition-colors hover:border-accent/40 hover:text-ink",
+              collapsed ? "justify-center px-0" : "justify-center gap-1.5 px-2",
+            )}
+          >
+            {collapsed ? <PanelLeftOpen size={14} /> : <><PanelLeftClose size={14} /> Collapse</>}
+          </button>
         </div>
       </aside>
 
       {/* ── TOPBAR ── */}
       <header className="z-10 flex items-center gap-3 border-b border-line bg-bg/80 px-5 backdrop-blur-2xl">
+
+        {/* Sidebar toggle */}
+        <button
+          onClick={toggleSidebar}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-surface/60 text-ink-2 backdrop-blur transition-colors hover:border-accent/40 hover:text-ink"
+        >
+          {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+        </button>
 
         {/* Page title */}
         <div className="min-w-0 shrink-0">

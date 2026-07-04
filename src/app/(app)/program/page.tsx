@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Rocket, Loader2, Plus, Trash2, CheckCircle2, Circle, Flame, Save, History, ListChecks, Gauge,
+  Rocket, Loader2, Plus, Trash2, CheckCircle2, Circle, Flame, Save, History, ListChecks, Gauge, ArrowUpRight,
 } from "lucide-react";
 import { Card, Chip, Bar } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,12 @@ const METRIC_LABEL: Record<string, string> = {
   revision: "cards reviewed", focus: "focus min", tests: "tests", notes: "notes",
 };
 
+/* Where each AUTO metric gets earned — clicking the task opens the tool. */
+const METRIC_LINK: Record<string, string> = {
+  answers: "/answers", pyq: "/pyq", ncert: "/ncert", ca: "/current-affairs",
+  revision: "/revision", focus: "/command", tests: "/tests", notes: "/notes",
+};
+
 /* Sprint-1 template from the program charter (P0 · Foundation). */
 const TEMPLATE = [
   { title: "Write & evaluate answers in the Answer Lab", metric: "answers", target: 6 },
@@ -39,6 +46,7 @@ const TEMPLATE = [
 ];
 
 export default function ProgramPage() {
+  const router = useRouter();
   const [d, setD] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -58,6 +66,25 @@ export default function ProgramPage() {
   useEffect(() => { load(); }, [load]);
 
   const patch = async (body: object) => { setBusy(true); await fetch("/api/program", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {}); setBusy(false); load(); };
+
+  /* Manual toggle — optimistic: the check flips instantly, then syncs. */
+  const toggleManual = (t: TaskT) => {
+    const next = !t.done;
+    setD((prev) => {
+      if (!prev?.current) return prev;
+      const tasks = prev.current.tasks.map((x) => (x.id === t.id ? { ...x, done: next, progress: next ? 1 : 0, complete: next } : x));
+      return { ...prev, current: { ...prev.current, tasks, completed: tasks.filter((x) => x.complete).length } };
+    });
+    fetch("/api/program", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: t.id, done: next }) })
+      .catch(() => {})
+      .finally(load);
+  };
+
+  /* Row click: manual → toggle; auto → open the tool that earns the metric. */
+  const rowClick = (t: TaskT) => {
+    if (t.metric === "manual") toggleManual(t);
+    else router.push(METRIC_LINK[t.metric] ?? "/command");
+  };
 
   const plan = async () => {
     if (!goal.trim() || rows.length === 0) return;
@@ -105,15 +132,18 @@ export default function ProgramPage() {
             <p className="mb-3 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2"><ListChecks size={13} className="text-accent" /> Sprint backlog</p>
             <div className="space-y-2.5">
               {c.tasks.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 rounded-xl border border-line-subtle px-3 py-2.5">
-                  <button
-                    disabled={t.metric !== "manual" || busy}
-                    onClick={() => patch({ taskId: t.id, done: !t.done })}
-                    className={cn("shrink-0", t.metric === "manual" ? "cursor-pointer" : "cursor-default opacity-90")}
-                    title={t.metric === "manual" ? "Toggle" : "Auto-tracked from your activity"}
-                  >
-                    {t.complete ? <CheckCircle2 size={17} className="text-success" /> : <Circle size={17} className="text-ink-3" />}
-                  </button>
+                <div
+                  key={t.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => rowClick(t)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); rowClick(t); } }}
+                  title={t.metric === "manual" ? "Click to check off" : `Auto-tracked — click to open ${METRIC_LINK[t.metric] ?? "the tool"} and earn it`}
+                  className="group flex cursor-pointer items-center gap-3 rounded-xl border border-line-subtle px-3 py-2.5 transition-colors hover:border-accent/40 hover:bg-surface-2/40"
+                >
+                  <span className="shrink-0">
+                    {t.complete ? <CheckCircle2 size={17} className="text-success" /> : <Circle size={17} className={cn("text-ink-3", t.metric === "manual" && "group-hover:text-accent")} />}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className={cn("truncate text-[13px]", t.complete ? "text-ink-3 line-through" : "text-ink")}>{t.title}</p>
                     {t.metric !== "manual" && (
@@ -123,8 +153,18 @@ export default function ProgramPage() {
                       </div>
                     )}
                   </div>
-                  <Chip tone={t.metric === "manual" ? "muted" : "accent"}>{t.metric === "manual" ? "manual" : "auto"}</Chip>
-                  <button onClick={() => patch({ taskId: t.id, remove: true })} disabled={busy} className="text-ink-3 transition-colors hover:text-danger" title="Remove">
+                  {t.metric !== "manual" && (
+                    <span className="hidden shrink-0 items-center gap-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-accent opacity-0 transition-opacity group-hover:opacity-100 sm:flex">
+                      open <ArrowUpRight size={11} />
+                    </span>
+                  )}
+                  <Chip tone={t.metric === "manual" ? "muted" : "accent"}>{t.metric === "manual" ? "tap ✓" : "auto"}</Chip>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); patch({ taskId: t.id, remove: true }); }}
+                    disabled={busy}
+                    className="text-ink-3 transition-colors hover:text-danger"
+                    title="Remove task"
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
