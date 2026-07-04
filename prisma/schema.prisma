@@ -491,12 +491,14 @@ model SprintTask {
   sprintId  String
   sprint    Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
   title     String
-  // metric-bound tasks auto-track progress from the activity ledger on read
+  // Ticket type (IAS OS FR-3): CLASS | LEARN | REVISE | PRACTICE | WRITE | ADMIN
+  type      String   @default("LEARN")
+  // metric-bound tickets auto-track progress from the activity ledger on read
   // (never stored): answers | pyq | ncert | ca | revision | focus | tests | notes.
   // "manual" = plain checkbox.
   metric    String   @default("manual")
   target    Int      @default(1)
-  done      Boolean  @default(false) // manual tasks only
+  done      Boolean  @default(false) // explicit completion override
   createdAt DateTime @default(now())
 
   @@index([sprintId])

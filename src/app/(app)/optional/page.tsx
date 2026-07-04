@@ -37,21 +37,38 @@ export default function OptionalPage() {
     <div className="mx-auto max-w-[1150px]">
       <div className="mb-4 animate-fade-up">
         <h2 className="flex items-center gap-2 font-display text-[24px] font-semibold tracking-tight text-ink">
-          <Scale size={18} className="text-accent" /> Optional Decision — data-backed
+          <Scale size={18} className="text-accent" /> Optional — Decision Record
         </h2>
         <p className="mt-0.5 text-[12.5px] text-ink-3">
-          Sociology vs PSIR vs Public Administration · {d.coverage.questionsAnalysed} optional PYQs decoded & analysed + verbatim syllabus-overlap mapping
+          Decided · the analysis below ({d.coverage.questionsAnalysed} decoded optional PYQs + syllabus-overlap mapping) is preserved as the evidence behind the decision.
         </p>
       </div>
 
-      {/* Verdict */}
+      {/* Decision — sealed */}
+      <Card className="mb-5 animate-fade-up border-amber-400/40 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-ink-3">Decision · July 2026</p>
+            <p className="mt-1 font-display text-[20px] font-semibold text-ink">
+              ✅ Political Science &amp; International Relations <span className="text-ink-3">(PSIR)</span>
+            </p>
+            <p className="mt-1.5 max-w-[640px] text-[12.5px] leading-relaxed text-ink-2">
+              Chosen for its cross-stage footprint — GS-II + IR, Prelims polity, Essay and Interview — and alignment with interest.
+              Classes: StudyIQ July batch, from <span className="text-ink">8 July 2026</span> (schedule integrated into the Sprint Board planner).
+            </p>
+          </div>
+          <Chip tone="warning">SEALED</Chip>
+        </div>
+      </Card>
+
+      {/* The original comparison, kept as evidence */}
       <div className="mb-5 grid animate-fade-up grid-cols-1 gap-4 lg:grid-cols-3">
-        <VerdictCard rank="Primary" medal="🥇" subject="Sociology" tone="border-emerald-500/40"
-          why="Best ROI for a 1-year first attempt: smallest finishable syllabus, strongest Essay engine, near 1:1 with GS-I society, and the most consistent scoring of the three." />
-        <VerdictCard rank="Strong alternative" medal="🥈" subject="PSIR" tone="border-amber-400/30"
-          why="Broadest cross-stage footprint — powers Prelims (polity), GS-II + IR, Essay and the Interview/current-affairs the most. Cost: largest & most CA-volatile." />
-        <VerdictCard rank="Third" medal="🥉" subject="Public Administration" tone="border-line"
-          why="Outstanding GS-II + GS-IV (ethics) + Interview overlap — you study to BE the administrator. Risk: recent years' stingy, unpredictable marking." />
+        <VerdictCard rank="Selected" medal="✅" subject="PSIR" tone="border-amber-400/50"
+          why="Broadest cross-stage footprint — powers Prelims (polity), GS-II + IR, Essay and the Interview/current-affairs the most. Cost: largest & most CA-volatile — managed via the StudyIQ schedule." />
+        <VerdictCard rank="Analysis runner-up" medal="—" subject="Sociology" tone="border-line"
+          why="Best pure ROI on paper: smallest finishable syllabus, strongest Essay engine, near 1:1 with GS-I society. Not chosen — interest alignment favoured PSIR." />
+        <VerdictCard rank="Third" medal="—" subject="Public Administration" tone="border-line"
+          why="Outstanding GS-II + GS-IV (ethics) + Interview overlap. Risk: recent years' stingy, unpredictable marking." />
       </div>
 
       {/* Overlap matrix */}

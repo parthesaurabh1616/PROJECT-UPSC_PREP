@@ -24,6 +24,17 @@ const METRICS: Record<string, { type: string; sum?: boolean; label: string }> = 
 };
 export type MetricKey = keyof typeof METRICS | "manual";
 
+/* Ticket types (IAS OS FR-3). Default inferred from the metric. */
+const TICKET_TYPES = ["CLASS", "LEARN", "REVISE", "PRACTICE", "WRITE", "ADMIN"] as const;
+const inferType = (metric: string): string =>
+  metric === "answers" ? "WRITE"
+  : metric === "pyq" || metric === "tests" ? "PRACTICE"
+  : metric === "revision" ? "REVISE"
+  : metric === "manual" ? "ADMIN"
+  : "LEARN";
+const validType = (t: unknown, metric: string): string =>
+  typeof t === "string" && (TICKET_TYPES as readonly string[]).includes(t) ? t : inferType(metric);
+
 async function metricProgress(metric: string, from: Date, to: Date): Promise<number> {
   const m = METRICS[metric];
   if (!m) return 0;
@@ -39,7 +50,7 @@ async function metricProgress(metric: string, from: Date, to: Date): Promise<num
   });
 }
 
-async function withProgress(sprint: { id: string; startsAt: Date; endsAt: Date; tasks: { id: string; title: string; metric: string; target: number; done: boolean }[] }) {
+async function withProgress(sprint: { id: string; startsAt: Date; endsAt: Date; tasks: { id: string; title: string; type: string; metric: string; target: number; done: boolean }[] }) {
   const tasks = await Promise.all(
     sprint.tasks.map(async (t) => {
       const progress = t.metric === "manual" ? (t.done ? 1 : 0) : await metricProgress(t.metric, sprint.startsAt, sprint.endsAt);
@@ -123,7 +134,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null) as { goal?: string; days?: number; tasks?: { title?: string; metric?: string; target?: number }[] } | null;
+  const body = await req.json().catch(() => null) as { goal?: string; days?: number; tasks?: { title?: string; metric?: string; target?: number; type?: string }[] } | null;
   if (!body?.goal?.trim()) return Response.json({ error: "A sprint needs a goal." }, { status: 400 });
   const tasks = (body.tasks ?? []).filter((t) => t.title?.trim());
   if (tasks.length === 0) return Response.json({ error: "Add at least one task." }, { status: 400 });
@@ -140,11 +151,15 @@ export async function POST(req: NextRequest) {
     data: {
       userId: DEMO_USER_ID, goal: body.goal.trim(), startsAt, endsAt,
       tasks: {
-        create: tasks.map((t) => ({
-          title: t.title!.trim().slice(0, 200),
-          metric: t.metric && (t.metric in METRICS || t.metric === "manual") ? t.metric : "manual",
-          target: Math.min(10000, Math.max(1, t.target ?? 1)),
-        })),
+        create: tasks.map((t) => {
+          const metric = t.metric && (t.metric in METRICS || t.metric === "manual") ? t.metric : "manual";
+          return {
+            title: t.title!.trim().slice(0, 200),
+            metric,
+            type: validType(t.type, metric),
+            target: Math.min(10000, Math.max(1, t.target ?? 1)),
+          };
+        }),
       },
     },
   });
@@ -154,7 +169,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null) as {
     taskId?: string; done?: boolean; remove?: boolean;
-    sprintId?: string; retro?: string; addTask?: { title?: string; metric?: string; target?: number };
+    sprintId?: string; retro?: string; addTask?: { title?: string; metric?: string; target?: number; type?: string };
   } | null;
   if (!body) return Response.json({ error: "Bad request" }, { status: 400 });
 
@@ -171,11 +186,13 @@ export async function PATCH(req: NextRequest) {
     return Response.json({ ok: true });
   }
   if (body.sprintId && body.addTask?.title?.trim()) {
+    const metric = body.addTask.metric && (body.addTask.metric in METRICS || body.addTask.metric === "manual") ? body.addTask.metric : "manual";
     await prisma.sprintTask.create({
       data: {
         sprintId: body.sprintId,
         title: body.addTask.title.trim().slice(0, 200),
-        metric: body.addTask.metric && (body.addTask.metric in METRICS || body.addTask.metric === "manual") ? body.addTask.metric : "manual",
+        metric,
+        type: validType(body.addTask.type, metric),
         target: Math.min(10000, Math.max(1, body.addTask.target ?? 1)),
       },
     });

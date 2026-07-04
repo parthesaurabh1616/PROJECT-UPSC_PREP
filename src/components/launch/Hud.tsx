@@ -9,7 +9,7 @@ import {
 import { Ambience } from "@/lib/ambience";
 
 interface Overview {
-  exam?: { shortName?: string; targetYear?: number | null; daysToPrelims?: number | null };
+  exam?: { shortName?: string };
   streak?: number | { streak?: number; current?: number; days?: number };
   studyToday?: number | { minutes?: number };
   coverage?: { ncert?: { pct?: number } };
@@ -57,6 +57,7 @@ export default function Hud({ arrived }: { arrived: boolean }) {
   const [ov, setOv] = useState<Overview | null>(null);
   const [dbOk, setDbOk] = useState<boolean | null>(null);
   const [feed, setFeed] = useState<Affair[]>([]);
+  const [sprint, setSprint] = useState<{ completed: number; total: number } | null>(null);
   const [sound, setSound] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const amb = useRef<Ambience | null>(null);
@@ -69,6 +70,13 @@ export default function Hud({ arrived }: { arrived: boolean }) {
     fetch("/api/affairs", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : []))
       .then((a: Affair[]) => setFeed(Array.isArray(a) ? a.slice(0, 4) : []))
+      .catch(() => {});
+    // process signal, not outcome: this week's ticket progress
+    fetch("/api/program", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { current?: { completed: number; total: number } | null } | null) => {
+        if (j?.current) setSprint({ completed: j.current.completed, total: j.current.total });
+      })
       .catch(() => {});
   }, []);
 
@@ -95,7 +103,6 @@ export default function Hud({ arrived }: { arrived: boolean }) {
   const local = clock?.toLocaleTimeString([], { hour12: false }) ?? "--:--:--";
   const streak = num(ov?.streak);
   const focus = typeof ov?.studyToday === "number" ? ov.studyToday : ov?.studyToday?.minutes ?? 0;
-  const tPrelims = ov?.exam?.daysToPrelims ?? null;
   const cover = ov?.coverage?.ncert?.pct ?? 0;
 
   return (
@@ -130,7 +137,7 @@ export default function Hud({ arrived }: { arrived: boolean }) {
         <Stat icon={<Clock size={11} />} label="Local" value={local} />
         <Stat icon={<Flame size={11} className="text-[#ffb454]" />} label="Streak" value={`${streak} D`} />
         <Stat icon={<Activity size={11} />} label="Focus today" value={`${focus} min`} />
-        <Stat icon={<ShieldCheck size={11} />} label={`T–Prelims`} value={tPrelims != null ? `${tPrelims} D` : "—"} />
+        <Stat icon={<ShieldCheck size={11} />} label="Tickets" value={sprint ? `${sprint.completed}/${sprint.total}` : "—"} />
         <div className="mt-1 w-[148px]">
           <div className="mb-0.5 flex justify-between text-[8px] uppercase tracking-[0.18em] text-[#5b86a8]"><span>NCERT coverage</span><span>{cover}%</span></div>
           <div className="h-1 overflow-hidden rounded-full bg-[#0d2236]"><div className="h-full rounded-full bg-gradient-to-r from-[#2aa8ff] to-[#5fe0ff]" style={{ width: `${cover}%` }} /></div>
