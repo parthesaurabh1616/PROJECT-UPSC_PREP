@@ -44,7 +44,9 @@ async function withProgress(sprint: { id: string; startsAt: Date; endsAt: Date; 
     sprint.tasks.map(async (t) => {
       const progress = t.metric === "manual" ? (t.done ? 1 : 0) : await metricProgress(t.metric, sprint.startsAt, sprint.endsAt);
       const target = t.metric === "manual" ? 1 : Math.max(1, t.target);
-      return { ...t, progress, target, complete: progress >= target, metricLabel: METRICS[t.metric]?.label ?? null };
+      // complete = the ledger hit the target OR the user explicitly marked it
+      // done (work can happen outside the platform — an honest override).
+      return { ...t, progress, target, complete: t.done || progress >= target, metricLabel: METRICS[t.metric]?.label ?? null };
     })
   );
   return tasks;

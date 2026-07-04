@@ -67,12 +67,18 @@ export default function ProgramPage() {
 
   const patch = async (body: object) => { setBusy(true); await fetch("/api/program", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {}); setBusy(false); load(); };
 
-  /* Manual toggle — optimistic: the check flips instantly, then syncs. */
-  const toggleManual = (t: TaskT) => {
+  /* Done toggle — works on EVERY task (optimistic: flips instantly, then
+     syncs). For auto tasks it's an honest override: complete = ledger hit
+     the target OR you marked it done (work can happen off-platform). */
+  const toggleDone = (t: TaskT) => {
     const next = !t.done;
     setD((prev) => {
       if (!prev?.current) return prev;
-      const tasks = prev.current.tasks.map((x) => (x.id === t.id ? { ...x, done: next, progress: next ? 1 : 0, complete: next } : x));
+      const tasks = prev.current.tasks.map((x) =>
+        x.id === t.id
+          ? { ...x, done: next, progress: x.metric === "manual" ? (next ? 1 : 0) : x.progress, complete: next || (x.metric !== "manual" && x.progress >= x.target) }
+          : x
+      );
       return { ...prev, current: { ...prev.current, tasks, completed: tasks.filter((x) => x.complete).length } };
     });
     fetch("/api/program", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: t.id, done: next }) })
@@ -82,7 +88,7 @@ export default function ProgramPage() {
 
   /* Row click: manual → toggle; auto → open the tool that earns the metric. */
   const rowClick = (t: TaskT) => {
-    if (t.metric === "manual") toggleManual(t);
+    if (t.metric === "manual") toggleDone(t);
     else router.push(METRIC_LINK[t.metric] ?? "/command");
   };
 
@@ -141,9 +147,14 @@ export default function ProgramPage() {
                   title={t.metric === "manual" ? "Click to check off" : `Auto-tracked — click to open ${METRIC_LINK[t.metric] ?? "the tool"} and earn it`}
                   className="group flex cursor-pointer items-center gap-3 rounded-xl border border-line-subtle px-3 py-2.5 transition-colors hover:border-accent/40 hover:bg-surface-2/40"
                 >
-                  <span className="shrink-0">
-                    {t.complete ? <CheckCircle2 size={17} className="text-success" /> : <Circle size={17} className={cn("text-ink-3", t.metric === "manual" && "group-hover:text-accent")} />}
-                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleDone(t); }}
+                    title={t.complete ? "Mark as not done" : "Mark complete"}
+                    aria-label={t.complete ? "Mark as not done" : "Mark complete"}
+                    className="shrink-0 rounded-full transition-transform hover:scale-125"
+                  >
+                    {t.complete ? <CheckCircle2 size={17} className="text-success" /> : <Circle size={17} className="text-ink-3 hover:text-accent" />}
+                  </button>
                   <div className="min-w-0 flex-1">
                     <p className={cn("truncate text-[13px]", t.complete ? "text-ink-3 line-through" : "text-ink")}>{t.title}</p>
                     {t.metric !== "manual" && (
@@ -160,7 +171,7 @@ export default function ProgramPage() {
                   )}
                   <Chip tone={t.metric === "manual" ? "muted" : "accent"}>{t.metric === "manual" ? "tap ✓" : "auto"}</Chip>
                   <button
-                    onClick={(e) => { e.stopPropagation(); patch({ taskId: t.id, remove: true }); }}
+                    onClick={(e) => { e.stopPropagation(); if (window.confirm(`Remove "${t.title}" from this sprint?`)) patch({ taskId: t.id, remove: true }); }}
                     disabled={busy}
                     className="text-ink-3 transition-colors hover:text-danger"
                     title="Remove task"
