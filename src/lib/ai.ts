@@ -14,6 +14,18 @@ function getGenAI() {
   return _genAI;
 }
 
+/** Generic JSON-mode generation (COS artifacts etc.). Returns parsed JSON. */
+export async function generateJson<T>(system: string, user: string, maxOutputTokens = 8192): Promise<T> {
+  const model = getGenAI().getGenerativeModel({
+    model: "gemini-2.5-flash",
+    systemInstruction: system,
+    generationConfig: { responseMimeType: "application/json", maxOutputTokens, temperature: 0.4 },
+  });
+  const res = await model.generateContent(user);
+  const clean = res.response.text().replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  return JSON.parse(clean) as T;
+}
+
 function getFileMgr() {
   if (!process.env.GOOGLE_API_KEY) throw new Error("GOOGLE_API_KEY is not set in .env");
   if (!_fileMgr) _fileMgr = new GoogleAIFileManager(process.env.GOOGLE_API_KEY);

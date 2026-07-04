@@ -1,0 +1,26 @@
+/* COS nightly job (idempotent — safe to run any time, D-4 budget).
+   ① materialize due topic-revisions as sprint tickets
+   ② persist the Sunday profile snapshot
+   ③ drain the artifact queue (≤10 generations, stops early on quota)
+   Run: npx tsx scripts/cos-nightly.ts  (optionally via Task Scheduler 04:05) */
+import { readFileSync } from "fs";
+try {
+  for (const line of readFileSync(".env", "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  }
+} catch { /* */ }
+
+async function main() {
+  const { materializeDueRevisions } = await import("../src/lib/cos");
+  const { maybeSnapshot } = await import("../src/lib/cos-profile");
+  const { drainArtifactQueue } = await import("../src/lib/cos-artifacts");
+
+  const tickets = await materializeDueRevisions();
+  console.log(`① revisions materialized: ${tickets}`);
+  await maybeSnapshot();
+  console.log("② snapshot: done (Sundays only)");
+  const { generated, failed } = await drainArtifactQueue(10);
+  console.log(`③ artifacts: ${generated} generated, ${failed} failed`);
+}
+main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

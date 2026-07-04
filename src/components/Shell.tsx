@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale, Rocket, PanelLeftClose, PanelLeftOpen, Gavel,
+  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale, Rocket, PanelLeftClose, PanelLeftOpen, Gavel, FileStack,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -38,6 +38,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { label: "Syllabus",        href: "/syllabus",        icon: BookMarked },
       { label: "Optional · PSIR", href: "/optional",        icon: Scale },
       { label: "Decision Journal",href: "/decisions",       icon: Gavel },
+      { label: "Exam-Eve Kits",   href: "/eve",             icon: FileStack, badge: "AI" },
       { label: "NCERT Library",   href: "/ncert",           icon: BookOpen },
       { label: "PYQ Intelligence",href: "/pyq",             icon: Target, badge: "AI" },
       { label: "Answer Lab",      href: "/answers",         icon: PenLine, badge: "AI" },
@@ -61,6 +62,7 @@ const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/syllabus":        { eyebrow: "SYLLABUS INTELLIGENCE", title: "Official UPSC Syllabus" },
   "/optional":        { eyebrow: "DECISION RECORD",     title: "Optional — PSIR (sealed)" },
   "/decisions":       { eyebrow: "COS · DECISION JOURNAL", title: "Decisions, made once" },
+  "/eve":             { eyebrow: "COS · EXAM-EVE ENGINE",  title: "Revision Kits" },
   "/ncert":           { eyebrow: "DIGITAL LIBRARY",    title: "NCERT Library" },
   "/pyq":             { eyebrow: "PYQ INTELLIGENCE",   title: "Past Papers Decoded" },
   "/answers":         { eyebrow: "MAINS ANSWER LAB",   title: "Answer Evaluation" },
