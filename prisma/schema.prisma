@@ -493,6 +493,8 @@ model SprintTask {
   title     String
   // Ticket type (IAS OS FR-3): CLASS | LEARN | REVISE | PRACTICE | WRITE | ADMIN
   type      String   @default("LEARN")
+  // COS link: syllabus node this ticket studies/revises (Phase 3)
+  nodeId    String?
   // metric-bound tickets auto-track progress from the activity ledger on read
   // (never stored): answers | pyq | ncert | ca | revision | focus | tests | notes.
   // "manual" = plain checkbox.
@@ -503,6 +505,92 @@ model SprintTask {
 
   @@index([sprintId])
   @@map("sprint_tasks")
+}
+
+// ── Cognitive Operating System (Phase 3) ─────────────────────
+// The twin's memory of a syllabus node. Ledger stays the source of
+// truth — this row caches derived state (recomputable by replay).
+model TopicState {
+  id             String    @id @default(cuid())
+  userId         String
+  nodeId         String    // stable syllabus node id (syllabus-data.ts)
+  title          String    // denormalised for display
+  status         String    @default("TOUCHED") // TOUCHED|PROCESSED|PRACTICED|REVISING|MASTERED|DECAYED
+  ladderStage    Int       @default(0)         // 0..5 (R1..R5)
+  lastRevisedAt  DateTime?
+  nextRevisionAt DateTime?
+  lastGrade      Int?
+  lqs            Int       @default(0)
+  lqsParts       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, nodeId])
+  @@index([userId, nextRevisionAt])
+  @@map("topic_states")
+}
+
+model DailyCheckin {
+  id          String   @id @default(cuid())
+  userId      String
+  day         DateTime // 04:00-boundary day (date at midnight UTC of that logical day)
+  sleepHrs    Float?
+  energy      Int?
+  mood        Int?
+  stress      Int?
+  focus       Int?
+  confidence  Int?
+  distraction Int?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, day])
+  @@map("daily_checkins")
+}
+
+model DecisionRecord {
+  id              String    @id @default(cuid())
+  userId          String
+  decidedAt       DateTime
+  title           String
+  decision        String
+  reason          String
+  evidence        String?
+  alternatives    String?
+  expectedOutcome String?
+  reviewAt        DateTime?
+  status          String    @default("ACTIVE") // ACTIVE|REVIEWED|SUPERSEDED
+  reviewNote      String?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId, status])
+  @@map("decision_records")
+}
+
+model TopicArtifact {
+  id         String   @id @default(cuid())
+  userId     String
+  nodeId     String
+  kind       String   // COLLECTOR|REVISION_NOTE|ONE_PAGER|MINDMAP|FLASHCARDS|RECALL_30
+  content    Json
+  sourceHash String
+  stale      Boolean  @default(false)
+  model      String?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, nodeId, kind])
+  @@map("topic_artifacts")
+}
+
+model ProfileSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  weekStart DateTime
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@unique([userId, weekStart])
+  @@map("profile_snapshots")
 }
 
 // ── Current Affairs ───────────────────────────────────────────

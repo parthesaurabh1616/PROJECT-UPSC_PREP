@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Brain, Loader2, CheckCircle2, ChevronRight } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { TopicMemoryPanel } from "@/components/TopicMemoryPanel";
 
 interface RevisionCard {
   id: string; front: string; back: string; subject: string | null;
@@ -99,6 +100,9 @@ export default function RevisionPage() {
           </button>
         </div>
       </div>
+
+      {/* COS macro layer — topic revision ladder (cards stay below) */}
+      <TopicMemoryPanel />
 
       {showAdd && (
         <Card className="animate-fade-up p-5 space-y-3">

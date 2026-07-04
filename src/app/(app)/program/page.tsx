@@ -14,7 +14,7 @@ import { psirClassesInRange, psirTestsInRange, PSIR_PAPER_LABEL } from "@/lib/ps
 
 interface TaskT {
   id: string; title: string; type: string; metric: string; target: number; done: boolean;
-  progress: number; complete: boolean; metricLabel: string | null;
+  progress: number; complete: boolean; metricLabel: string | null; nodeId?: string | null;
 }
 
 /* Ticket types (FR-3) — chip tone per type */
@@ -108,8 +108,16 @@ export default function ProgramPage() {
       .finally(load);
   };
 
+  /* Topic-revision tickets: a recall grade closes them AND advances the
+     memory ladder (grade → /api/cos/topics, done → this board). */
+  const gradeRevision = (t: TaskT, grade: number) => {
+    fetch("/api/cos/topics", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nodeId: t.nodeId, grade }) }).catch(() => {});
+    toggleDone(t); // optimistic close + program sync
+  };
+
   /* Row click: manual → toggle; auto → open the tool that earns the metric. */
   const rowClick = (t: TaskT) => {
+    if (t.type === "REVISE" && t.nodeId && !t.complete) return; // grade buttons handle it
     if (t.metric === "manual") toggleDone(t);
     else router.push(METRIC_LINK[t.metric] ?? "/command");
   };
@@ -189,6 +197,18 @@ export default function ProgramPage() {
                   {t.metric !== "manual" && (
                     <span className="hidden shrink-0 items-center gap-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-accent opacity-0 transition-opacity group-hover:opacity-100 sm:flex">
                       open <ArrowUpRight size={11} />
+                    </span>
+                  )}
+                  {t.type === "REVISE" && t.nodeId && !t.complete && (
+                    <span className="flex shrink-0 items-center gap-1" title="How well did you recall it? 1 = blank · 5 = perfect">
+                      <span className="mr-0.5 hidden font-mono text-[8.5px] uppercase tracking-[0.12em] text-ink-3 md:inline">recall</span>
+                      {[1, 2, 3, 4, 5].map((g) => (
+                        <button key={g} onClick={(e) => { e.stopPropagation(); gradeRevision(t, g); }}
+                          className={cn("grid h-6 w-6 place-items-center rounded-md border font-mono text-[10.5px] transition-colors",
+                            g >= 4 ? "border-success/40 text-success hover:bg-success/15" : g === 3 ? "border-warning/40 text-warning hover:bg-warning/15" : "border-danger/40 text-danger hover:bg-danger/15")}>
+                          {g}
+                        </button>
+                      ))}
                     </span>
                   )}
                   <Chip tone={TYPE_TONE[t.type] ?? "muted"}>{t.type}</Chip>

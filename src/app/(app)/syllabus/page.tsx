@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Network, Loader2, ChevronDown, ChevronRight, BookMarked } from "lucide-react";
+import { Network, Loader2, ChevronDown, ChevronRight, BookMarked, Brain, CheckCircle2 } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { RelatedPanel } from "@/components/RelatedPanel";
 import { cn } from "@/lib/utils";
@@ -22,10 +22,19 @@ export default function SyllabusPage() {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<string>("prelims");
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [tracked, setTracked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/syllabus/official").then((r) => r.json()).then((j: Data) => setD(j)).catch(() => {}).finally(() => setLoading(false));
+    fetch("/api/cos/topics").then((r) => r.json())
+      .then((j: { topics?: { nodeId: string }[] }) => setTracked(new Set((j.topics ?? []).map((t) => t.nodeId))))
+      .catch(() => {});
   }, []);
+
+  const track = (node: SylNode) => {
+    setTracked((s) => new Set(s).add(node.id)); // optimistic
+    fetch("/api/cos/topics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nodeId: node.id, title: node.title }) }).catch(() => {});
+  };
 
   if (loading) return <div className="flex items-center gap-2 py-20 text-ink-3"><Loader2 size={16} className="animate-spin" /> Loading the official syllabus…</div>;
   if (!d) return <div className="py-20 text-ink-3">Couldn’t load the syllabus.</div>;
@@ -85,6 +94,18 @@ export default function SyllabusPage() {
                           </button>
                           {isOpen && (
                             <div className="border-t border-line-subtle px-3 py-3">
+                              <div className="mb-3">
+                                {tracked.has(node.id) ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-success/40 bg-success/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-success">
+                                    <CheckCircle2 size={11} /> In memory engine — revisions auto-scheduled
+                                  </span>
+                                ) : (
+                                  <button onClick={() => track(node)}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-accent transition-colors hover:bg-accent/20">
+                                    <Brain size={11} /> I studied this — start the revision ladder
+                                  </button>
+                                )}
+                              </div>
                               {node.items && node.items.length > 0 && (
                                 <ul className="mb-3 space-y-1">
                                   {node.items.map((it, i) => (
