@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { Card, Chip, Bar } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { MilestoneCountdown } from "@/components/dashboard";
+import { ProfilePanel } from "@/components/ProfilePanel";
 
 /* ── Types mirror /api/exam-center ─────────────────────────── */
 interface Prov { value: unknown; source: string; method: string; updatedAt: string | null; activities: string }
@@ -73,6 +75,12 @@ export default function ExamCenterPage() {
           {d.exam.shortName} · understand the exam end-to-end · benchmark against real toppers · track your real progress
         </p>
       </div>
+
+      {/* Milestone countdown — lives here (Direction Room), not on daily surfaces (FR-1) */}
+      <div className="mb-5 animate-fade-up"><MilestoneCountdown /></div>
+
+      {/* Learning profile — COS M1, evidence-gated */}
+      <div className="mb-5 animate-fade-up"><ProfilePanel /></div>
 
       {/* Tabs */}
       <div className="mb-5 flex animate-fade-up flex-wrap gap-1.5">

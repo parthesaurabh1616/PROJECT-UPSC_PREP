@@ -12,6 +12,7 @@ import {
   SectionHeader, Eyebrow,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { CheckinCard } from "@/components/CheckinCard";
 
 /* ════════════════════════════════════════════════════════════
    HONEST DASHBOARD — every number comes from /api/overview,
@@ -84,8 +85,8 @@ export function Dashboard() {
         <DeepWorkTimer onLogged={reload} todayMinutes={data.studyToday.minutes} />
       </div>
 
-      {/* COUNTDOWN — exact when set, else estimate (clearly marked) */}
-      <div className="animate-fade-up" style={{ animationDelay: "100ms" }}><CountdownBlock d={data} /></div>
+      {/* DAILY CHECK-IN — COS capture (countdown relocated to /exam per FR-1) */}
+      <div className="animate-fade-up" style={{ animationDelay: "100ms" }}><CheckinCard /></div>
 
       {/* B. WHERE I STAND — coverage (honestly labelled) */}
       <div className="grid animate-fade-up grid-cols-[1fr_1fr] gap-5" style={{ animationDelay: "120ms" }}>
@@ -140,6 +141,16 @@ function Hero({ d }: { d: Overview }) {
 }
 
 /* ── COUNTDOWN ────────────────────────────────────────── */
+/* Relocated to /exam (Direction Room) per FR-1 — self-fetching wrapper. */
+export function MilestoneCountdown() {
+  const [d, setD] = useState<Overview | null>(null);
+  useEffect(() => {
+    fetch("/api/overview", { cache: "no-store" }).then((r) => r.json()).then(setD).catch(() => {});
+  }, []);
+  if (!d) return null;
+  return <CountdownBlock d={d} />;
+}
+
 function CountdownBlock({ d }: { d: Overview }) {
   const m = d.exam.milestones;
   const cells = [
