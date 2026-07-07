@@ -46,7 +46,9 @@ export async function compileSheet(day: Date) {
   const judged = affairs.filter((a) => a.boardAt);
   if (judged.length === 0) return null;
 
-  const hash = createHash("sha1").update(judged.map((a) => a.id + (a.boardAt?.getTime() ?? 0)).sort().join("|")).digest("hex");
+  // hash includes the day's total item count so a sheet refreshes (and its
+  // pendingJudgement stays honest) when new unjudged items arrive
+  const hash = createHash("sha1").update(`${affairs.length}|` + judged.map((a) => a.id + (a.boardAt?.getTime() ?? 0)).sort().join("|")).digest("hex");
   const existing = await prisma.caDailySheet.findUnique({ where: { userId_day: { userId: DEMO_USER_ID, day: from } } });
   if (existing && existing.sourceHash === hash) return existing;
 
