@@ -1,10 +1,33 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Bookmark, RefreshCw, Loader2, ChevronRight, X, Landmark, ExternalLink, Radio } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { Bookmark, RefreshCw, Loader2, ChevronRight, X, Landmark, ExternalLink, Radio, Gavel } from "lucide-react";
 import { Card, Chip, Divider, SectionHeading } from "@/components/ui";
 import { GlobeCanvas, type Article } from "@/components/GlobeCanvas";
 import { cn } from "@/lib/utils";
+
+/* ── UPSC Examination Board verdict (AI judgment, labelled as such) ── */
+interface BoardV {
+  verdict: "WORTHY" | "MARGINAL" | "REJECT";
+  verdictReason: string;
+  scores: { prelimsProb: number; mainsProb: number; interviewValue: number; staticImportance: number; revisionPriority: number };
+  staticLinks: { paper: string; topic: string }[];
+  hiddenConcepts: string[];
+  prelimsTraps: string[];
+  mainsQuestion: string;
+  mainsSkeleton: string[];
+  essayUse: string[];
+  interviewChain: string[];
+  pyqResemblance: { ref: string; lesson: string }[];
+  compression: { w100: string; w25: string; keywords3: string[] };
+  mnemonic: string;
+  confusable: string;
+  eliminationClue: string;
+  oneDayBefore: string;
+  ignore: string;
+}
+type BArticle = Article & { verdict?: string | null; prelimsProb?: number | null; mainsProb?: number | null; boardVerdict?: BoardV | null };
+const bOf = (a: Article) => a as BArticle;
 
 const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -30,7 +53,31 @@ export default function CurrentAffairsPage() {
   const [read, setRead]         = useState<Set<string>>(new Set());
   const [tab, setTab]           = useState<CatKey>("all");
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [bstats, setBstats]     = useState<{ judged: number; worthy: number; pending: number } | null>(null);
+  const [judging, setJudging]   = useState(false);
+  const [judgeMsg, setJudgeMsg] = useState("");
+  const [worthyOnly, setWorthyOnly] = useState(false);
   const initialised = useRef(false);
+
+  const loadBoard = useCallback(() => {
+    fetch("/api/affairs/board", { cache: "no-store" }).then((r) => r.json())
+      .then((j: { judged: number; worthy: number; pending: number }) => setBstats(j)).catch(() => {});
+  }, []);
+
+  const runBoard = useCallback(async () => {
+    if (judging) return;
+    setJudging(true); setJudgeMsg("");
+    try {
+      const r = await fetch("/api/affairs/board", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: 8 }) });
+      const d = await r.json() as { judged?: number; worthy?: number; rejected?: number; error?: string };
+      setJudgeMsg(d.error ? d.error : `judged ${d.judged}: ${d.worthy} worthy · ${d.rejected} rejected`);
+    } catch { setJudgeMsg("Board failed"); }
+    setJudging(false);
+    loadBoard();
+    void load();
+    setTimeout(() => setJudgeMsg(""), 8000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [judging, loadBoard]);
 
   const load = useCallback(async () => {
     try {
@@ -65,6 +112,7 @@ export default function CurrentAffairsPage() {
   useEffect(() => {
     if (initialised.current) return;
     initialised.current = true;
+    loadBoard();
     (async () => {
       const list = await load();
       const newest = list[0]?.publishedAt ? new Date(list[0].publishedAt).getTime() : 0;
@@ -103,7 +151,19 @@ export default function CurrentAffairsPage() {
   };
   const unread = articles.filter((a) => !read.has(a.id)).length;
 
-  const visible = tab === "all" ? articles : articles.filter((a) => (a.category ?? "news") === tab);
+  const inTab   = tab === "all" ? articles : articles.filter((a) => (a.category ?? "news") === tab);
+  const visible = worthyOnly ? inTab.filter((a) => { const v = bOf(a).verdict; return v === "WORTHY" || v === "MARGINAL"; }) : inTab;
+
+  // ── day-by-day archive: every day since ingestion started, well managed ──
+  const byDay: { day: string; items: Article[] }[] = [];
+  for (const a of visible) {
+    const day = a.publishedAt
+      ? new Date(a.publishedAt).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+      : "Undated";
+    const last = byDay[byDay.length - 1];
+    if (last && last.day === day) last.items.push(a);
+    else byDay.push({ day, items: [a] });
+  }
   const high    = articles.filter((a) => a.priority === "high").length;
   const pibCount = articles.filter((a) => a.category === "pib").length;
   const gsTags  = Array.from(new Set(visible.flatMap((a) => a.gsMapping)));
@@ -136,7 +196,19 @@ export default function CurrentAffairsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {syncMsg && <span className="text-[11.5px] text-ink-2">{syncMsg}</span>}
+          {(syncMsg || judgeMsg) && <span className="text-[11.5px] text-ink-2">{judgeMsg || syncMsg}</span>}
+          <button onClick={() => setWorthyOnly((v) => !v)}
+            title="Show only items the Examination Board judged worth your time"
+            className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] transition-colors",
+              worthyOnly ? "border-success/50 bg-success/15 text-success" : "border-line text-ink-2 hover:border-success/40 hover:text-success")}>
+            Board-worthy only
+          </button>
+          <button onClick={() => { void runBoard(); }} disabled={judging}
+            title={bstats ? `${bstats.judged} judged · ${bstats.worthy} worthy · ${bstats.pending} pending` : "Judge pending items like the exam board"}
+            className="flex items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 text-[12px] text-warning transition-colors hover:bg-warning/20 disabled:opacity-50">
+            {judging ? <Loader2 size={13} className="animate-spin" /> : <Gavel size={13} />}
+            {judging ? "Board sitting…" : `Examination Board${bstats?.pending ? ` (${bstats.pending})` : ""}`}
+          </button>
           <button onClick={() => { void sync(); }} disabled={syncing}
             className="flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-[12px] text-accent transition-colors hover:bg-accent/20 disabled:opacity-50">
             {syncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
@@ -185,14 +257,23 @@ export default function CurrentAffairsPage() {
               <p className="mt-1 text-[11px] text-ink-3">Auto-refreshes every 5 minutes</p>
             </Card>
           )}
-          {visible.map((a) => (
-            <ArticleCard key={a.id} article={a}
-              active={selected?.id === a.id}
-              saved={saved.has(a.id)}
-              unread={!read.has(a.id)}
-              onSave={() => toggleSave(a.id)}
-              onClick={() => open(a)}
-            />
+          {byDay.map((g) => (
+            <div key={g.day}>
+              <p className="sticky top-0 z-10 -mx-1 mb-2 bg-bg/90 px-1 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3 backdrop-blur">
+                {g.day} · {g.items.length} item{g.items.length === 1 ? "" : "s"}
+              </p>
+              <div className="space-y-4">
+                {g.items.map((a) => (
+                  <ArticleCard key={a.id} article={a}
+                    active={selected?.id === a.id}
+                    saved={saved.has(a.id)}
+                    unread={!read.has(a.id)}
+                    onSave={() => toggleSave(a.id)}
+                    onClick={() => open(a)}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
 
@@ -301,8 +382,141 @@ export default function CurrentAffairsPage() {
             {selected.gsMapping.map((g) => <Chip key={g} tone="accent">{g}</Chip>)}
             {selected.tags.map((t, i) => <span key={i} className="rounded-full bg-surface-2 px-2 py-0.5 text-[10.5px] text-ink-2">{t}</span>)}
           </div>
+
+          {/* ── The Examination Board's verdict ── */}
+          <BoardSection article={selected} onJudged={() => { void load(); loadBoard(); }} />
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Board verdict chip (list cards) ─────────────────────────── */
+function VerdictChip({ a }: { a: Article }) {
+  const b = bOf(a);
+  if (!b.verdict) return null;
+  if (b.verdict === "REJECT") return <Chip tone="muted">✗ Board: skip</Chip>;
+  return (
+    <Chip tone={b.verdict === "WORTHY" ? "success" : "warning"}>
+      {b.verdict === "WORTHY" ? "✓ Worthy" : "~ Marginal"} · P{b.prelimsProb ?? 0} M{b.mainsProb ?? 0}
+    </Chip>
+  );
+}
+
+/* ── Full Board panel (detail view) ──────────────────────────── */
+function BoardSection({ article, onJudged }: { article: Article; onJudged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const b = bOf(article);
+  const v = b.boardVerdict ?? null;
+
+  const judge = async () => {
+    setBusy(true); setErr("");
+    const r = await fetch("/api/affairs/board", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ affairId: article.id }) }).then((x) => x.json()).catch(() => ({ error: "network" }));
+    setBusy(false);
+    if (r.error) { setErr(r.error); return; }
+    onJudged();
+  };
+
+  if (!v) {
+    return (
+      <div className="mt-4 rounded-xl border border-warning/30 bg-warning/5 p-4">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-warning"><Gavel size={12} /> Not yet judged</p>
+        <p className="mt-1 text-[12px] text-ink-3">Put this item before the Examination Board — it decides worthiness, designs the traps, and compresses it for exam-eve.</p>
+        {err && <p className="mt-1 text-[11.5px] text-danger">{err}</p>}
+        <button onClick={judge} disabled={busy}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-warning hover:bg-warning/20 disabled:opacity-50">
+          {busy ? <Loader2 size={11} className="animate-spin" /> : <Gavel size={11} />} Judge this item
+        </button>
+      </div>
+    );
+  }
+
+  const S = ({ label, children }: { label: string; children: ReactNode }) => (
+    <div>
+      <p className="mb-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-ink-3">{label}</p>
+      {children}
+    </div>
+  );
+
+  return (
+    <div className={cn("mt-4 rounded-xl border p-4", v.verdict === "REJECT" ? "border-line" : "border-warning/30 bg-warning/5")}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-warning">
+          <Gavel size={12} /> Examination Board verdict <span className="normal-case tracking-normal text-ink-3">(AI judgment)</span>
+        </p>
+        <div className="flex items-center gap-1.5">
+          <Chip tone={v.verdict === "WORTHY" ? "success" : v.verdict === "MARGINAL" ? "warning" : "muted"}>{v.verdict}</Chip>
+          {v.verdict !== "REJECT" && (
+            <span className="font-mono text-[10px] text-ink-3">
+              Prelims {v.scores.prelimsProb} · Mains {v.scores.mainsProb} · Interview {v.scores.interviewValue} · Revision {v.scores.revisionPriority}
+            </span>
+          )}
+        </div>
+      </div>
+      <p className="mt-2 text-[12.5px] leading-relaxed text-ink-2">{v.verdictReason}</p>
+
+      {v.verdict !== "REJECT" && (
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-3.5">
+            {v.staticLinks?.length > 0 && (
+              <S label="Static linkage">
+                <div className="flex flex-wrap gap-1.5">{v.staticLinks.map((s, i) => <Chip key={i} tone="accent">{s.paper} · {s.topic}</Chip>)}</div>
+              </S>
+            )}
+            {v.hiddenConcepts?.length > 0 && (
+              <S label="Hidden concepts the examiner would test">
+                <ul className="space-y-0.5">{v.hiddenConcepts.map((h, i) => <li key={i} className="text-[12.5px] text-ink-2">· {h}</li>)}</ul>
+              </S>
+            )}
+            {v.prelimsTraps?.length > 0 && (
+              <S label="Trap statements UPSC could set">
+                <ul className="space-y-1">{v.prelimsTraps.map((t, i) => <li key={i} className="text-[12px] leading-relaxed text-ink-2">⚠ {t}</li>)}</ul>
+              </S>
+            )}
+            {v.pyqResemblance?.length > 0 && (
+              <S label="Real PYQs this resembles">
+                {v.pyqResemblance.map((p, i) => (
+                  <p key={i} className="mb-1 text-[12px] leading-relaxed text-ink-2"><span className="text-accent-2">{p.ref}</span> — {p.lesson}</p>
+                ))}
+              </S>
+            )}
+          </div>
+          <div className="space-y-3.5">
+            {v.mainsQuestion && (
+              <S label="Mains question it could become">
+                <p className="text-[12.5px] font-medium text-ink">{v.mainsQuestion}</p>
+                {v.mainsSkeleton?.length > 0 && <ul className="mt-1 space-y-0.5">{v.mainsSkeleton.map((m, i) => <li key={i} className="text-[11.5px] text-ink-2">– {m}</li>)}</ul>}
+              </S>
+            )}
+            {v.essayUse?.length > 0 && <S label="Essay ammunition"><ul className="space-y-0.5">{v.essayUse.map((e, i) => <li key={i} className="text-[12px] text-ink-2">✎ {e}</li>)}</ul></S>}
+            {v.interviewChain?.length > 0 && <S label="Interview probe chain"><ul className="space-y-0.5">{v.interviewChain.map((q, i) => <li key={i} className="text-[12px] text-ink-2">{i + 1}. {q}</li>)}</ul></S>}
+            {(v.mnemonic || v.confusable || v.eliminationClue) && (
+              <S label="Memory engineering">
+                {v.mnemonic && <p className="text-[12px] text-ink-2">🧠 {v.mnemonic}</p>}
+                {v.confusable && <p className="text-[12px] text-ink-2">⇄ Don&apos;t confuse: {v.confusable}</p>}
+                {v.eliminationClue && <p className="text-[12px] text-ink-2">✂ Elimination: {v.eliminationClue}</p>}
+              </S>
+            )}
+          </div>
+        </div>
+      )}
+
+      {v.verdict !== "REJECT" && v.compression && (
+        <div className="mt-4 rounded-lg border border-line-subtle bg-surface-2/40 p-3">
+          <p className="mb-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-accent-2">Compression ladder → exam eve</p>
+          <p className="text-[12px] leading-relaxed text-ink-2">{v.compression.w100}</p>
+          <p className="mt-1.5 text-[12.5px] font-medium text-ink">25w · {v.compression.w25}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {v.compression.keywords3?.map((k, i) => <span key={i} className="rounded-full bg-accent/15 px-2.5 py-0.5 font-mono text-[10.5px] text-accent">{k}</span>)}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+        {v.oneDayBefore && <p className="rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-[12px] text-ink"><span className="font-mono text-[9px] uppercase tracking-wider text-success">22 May 2027 → </span>{v.oneDayBefore}</p>}
+        {v.ignore && <p className="rounded-lg border border-line-subtle px-3 py-2 text-[12px] text-ink-3"><span className="font-mono text-[9px] uppercase tracking-wider">Ignore → </span>{v.ignore}</p>}
+      </div>
     </div>
   );
 }
@@ -348,6 +562,7 @@ function ArticleCard({ article: a, active, saved, unread, onSave, onClick }: {
         <p className="mt-2.5 line-clamp-2 text-[12.5px] leading-relaxed text-ink-2">{a.whyInNews}</p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <VerdictChip a={a} />
         {a.priority === "high" && <Chip tone="danger">High priority</Chip>}
         {a.gsMapping.map((g) => <Chip key={g} tone="accent">{g}</Chip>)}
         {a.tags.slice(0, 3).map((t, i) => (

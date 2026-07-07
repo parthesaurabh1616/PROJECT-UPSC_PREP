@@ -617,6 +617,15 @@ model CurrentAffair {
   publishedAt DateTime @default(now())
   createdAt   DateTime @default(now())
 
+  // ── UPSC Examination Board verdict (AI judgment, clearly labelled) ──
+  worthy          Boolean?                 // WORTHY/MARGINAL → true|false, null = not yet judged
+  verdict         String?                  // WORTHY | MARGINAL | REJECT
+  prelimsProb     Int?                     // Board estimate 0-100
+  mainsProb       Int?                     // Board estimate 0-100
+  revisionPriority Int?                    // Board estimate 0-100 (drives revision ordering)
+  boardVerdict    Json?                    // full structured verdict (traps, links, compression…)
+  boardAt         DateTime?
+
   @@index([category])
   @@index([examScope])
   @@index([importanceScore])

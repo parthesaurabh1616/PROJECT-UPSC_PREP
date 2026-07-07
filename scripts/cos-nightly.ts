@@ -22,5 +22,8 @@ async function main() {
   console.log("② snapshot: done (Sundays only)");
   const { generated, failed } = await drainArtifactQueue(10);
   console.log(`③ artifacts: ${generated} generated, ${failed} failed`);
+  const { boardBatch } = await import("../src/lib/upsc-board");
+  const b = await boardBatch(10);
+  console.log(`④ examination board: ${b.judged} judged (${b.worthy} worthy · ${b.rejected} rejected · ${b.failed} failed)`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
