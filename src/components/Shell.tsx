@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Sparkles, FileText, Newspaper, RotateCcw, Library,
   Sun, Moon, Flame, Command, CornerDownLeft, Search, RefreshCw, Loader2,
-  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale, Rocket, PanelLeftClose, PanelLeftOpen, Gavel, FileStack,
+  TrendingUp, Radio, Network, BookOpen, Target, Settings, PenLine, ClipboardCheck, CalendarRange, BookMarked, Scale, Rocket, PanelLeftClose, PanelLeftOpen, Gavel, FileStack, CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -44,6 +44,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { label: "Answer Lab",      href: "/answers",         icon: PenLine, badge: "AI" },
       { label: "Test Arena",      href: "/tests",           icon: ClipboardCheck, badge: "AI" },
       { label: "Revision",        href: "/revision",        icon: RotateCcw },
+      { label: "CA Rev Sheets",   href: "/revision/current-affairs", icon: CalendarDays },
       { label: "Library",         href: "/library",         icon: Library },
     ],
   },
@@ -68,6 +69,7 @@ const PAGE_META: Record<string, { eyebrow: string; title: string }> = {
   "/answers":         { eyebrow: "MAINS ANSWER LAB",   title: "Answer Evaluation" },
   "/tests":           { eyebrow: "PRELIMS ARENA",       title: "Test Series" },
   "/revision":        { eyebrow: "REVISION ENGINE",    title: "Spaced Repetition" },
+  "/revision/current-affairs": { eyebrow: "REVISION · CURRENT AFFAIRS", title: "Daily CA Sheets" },
   "/settings":        { eyebrow: "CONFIGURATION",       title: "Settings" },
   "/library":         { eyebrow: "ARCHIVE",            title: "Library" },
 };

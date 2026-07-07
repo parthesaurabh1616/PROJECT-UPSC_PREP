@@ -25,5 +25,7 @@ async function main() {
   const { boardBatch } = await import("../src/lib/upsc-board");
   const b = await boardBatch(10);
   console.log(`④ examination board: ${b.judged} judged (${b.worthy} worthy · ${b.rejected} rejected · ${b.failed} failed)`);
+  const { ensureSheets } = await import("../src/lib/ca-sheets");
+  console.log(`⑤ daily CA sheets refreshed: ${await ensureSheets()}`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

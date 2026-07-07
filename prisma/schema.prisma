@@ -593,6 +593,22 @@ model ProfileSnapshot {
   @@map("profile_snapshots")
 }
 
+// ── Daily CA revision sheets (compiled from Board verdicts) ───
+model CaDailySheet {
+  id          String   @id @default(cuid())
+  userId      String
+  day         DateTime // logical day (04:00 boundary), midnight-normalised
+  content     Json     // compiled sheet: items by revisionPriority + skip summary
+  itemCount   Int      @default(0) // worthy+marginal items on the sheet
+  judgedCount Int      @default(0)
+  sourceHash  String   // hash of contributing verdict ids — regenerate on change
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, day])
+  @@map("ca_daily_sheets")
+}
+
 // ── Current Affairs ───────────────────────────────────────────
 model CurrentAffair {
   id          String   @id @default(cuid())
