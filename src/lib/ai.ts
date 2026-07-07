@@ -596,6 +596,46 @@ export async function extractPyqQuestions(
     }));
 }
 
+// ── CA source-PDF extraction (coaching/newspaper compilations) ──
+export interface CaExtractedItem {
+  headline: string; summary: string; whyInNews: string; keyFacts: string;
+  gsMapping: string[]; tags: string[]; category: string; priority: string;
+}
+
+const CA_PDF_SYSTEM = (source: string, dateHint: string) => `You are a UPSC current-affairs analyst digesting a daily compilation PDF ("${source}", dated ${dateHint}). Extract every DISTINCT UPSC-relevant story as a separate item. Skip ads, page furniture, quizzes/answer keys, and pure-GK trivia. 5–25 items typical.
+
+Respond ONLY with valid JSON:
+{"items":[{
+  "headline": "crisp, specific (≤120 chars)",
+  "summary": "2-3 sentences of the substance",
+  "whyInNews": "1 sentence — the trigger",
+  "keyFacts": "3-5 MCQ-worthy facts separated by | ",
+  "gsMapping": ["GS-II"],
+  "tags": ["polity"],
+  "category": "news|editorial|economy|international|pib",
+  "priority": "high|normal|low"
+}]}`;
+
+export async function extractCaFromPdf(pdfPath: string, source: string, dateHint: string): Promise<CaExtractedItem[]> {
+  const raw = await generateFromPdf(pdfPath, CA_PDF_SYSTEM(source, dateHint), "Extract all distinct UPSC-relevant items as JSON.");
+  const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  let j: { items?: unknown[] };
+  try { j = JSON.parse(clean); } catch { throw new ChapterAnalysisError("Gemini returned an unparseable response. Try again."); }
+  return (Array.isArray(j.items) ? j.items : [])
+    .filter((x): x is CaExtractedItem => !!x && typeof (x as CaExtractedItem).headline === "string" && (x as CaExtractedItem).headline.length > 8)
+    .slice(0, 30)
+    .map((x) => ({
+      headline: String(x.headline).slice(0, 200),
+      summary: String(x.summary ?? "").slice(0, 1500),
+      whyInNews: String(x.whyInNews ?? "").slice(0, 500),
+      keyFacts: String(x.keyFacts ?? "").slice(0, 1500),
+      gsMapping: Array.isArray(x.gsMapping) ? x.gsMapping.map(String).slice(0, 4) : [],
+      tags: Array.isArray(x.tags) ? x.tags.map(String).slice(0, 6) : [],
+      category: ["news", "editorial", "economy", "international", "pib"].includes(String(x.category)) ? String(x.category) : "news",
+      priority: ["high", "normal", "low"].includes(String(x.priority)) ? String(x.priority) : "normal",
+    }));
+}
+
 // ── Daily Intelligence Briefing ───────────────────────────────
 export interface BriefingItem { headline: string; why: string; gs: string[]; }
 export interface Briefing { summary: string; items: BriefingItem[]; focus: string[]; }

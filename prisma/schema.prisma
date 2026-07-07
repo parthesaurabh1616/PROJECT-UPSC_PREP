@@ -593,6 +593,25 @@ model ProfileSnapshot {
   @@map("profile_snapshots")
 }
 
+// ── CA source documents (coaching/newspaper PDFs, auto-scanned) ──
+model SourceDoc {
+  id        String    @id @default(cuid())
+  path      String    @unique          // absolute file path
+  folder    String                     // source name = folder name
+  filename  String
+  day       DateTime?                  // parsed from filename (fallback: file mtime)
+  size      Int
+  mtimeMs   Float
+  status    String    @default("PENDING") // PENDING | DECODED | FAILED
+  items     Int       @default(0)      // CurrentAffair rows extracted
+  error     String?
+  decodedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([status])
+  @@map("source_docs")
+}
+
 // ── Daily CA revision sheets (compiled from Board verdicts) ───
 model CaDailySheet {
   id          String   @id @default(cuid())

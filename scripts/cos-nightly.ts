@@ -25,7 +25,11 @@ async function main() {
   const { boardBatch } = await import("../src/lib/upsc-board");
   const b = await boardBatch(10);
   console.log(`④ examination board: ${b.judged} judged (${b.worthy} worthy · ${b.rejected} rejected · ${b.failed} failed)`);
+  const { scanSources, decodeSourceBatch } = await import("../src/lib/ca-sources");
+  const scan = await scanSources();
+  const dec = await decodeSourceBatch(4);
+  console.log(`⑤ source PDFs: +${scan.added} new/${scan.changed} changed · decoded ${dec.decoded} → ${dec.items} items (${dec.failed} failed)`);
   const { ensureSheets } = await import("../src/lib/ca-sheets");
-  console.log(`⑤ daily CA sheets refreshed: ${await ensureSheets()}`);
+  console.log(`⑥ daily CA sheets refreshed: ${await ensureSheets()}`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

@@ -57,7 +57,28 @@ export default function CurrentAffairsPage() {
   const [judging, setJudging]   = useState(false);
   const [judgeMsg, setJudgeMsg] = useState("");
   const [worthyOnly, setWorthyOnly] = useState(false);
+  const [srcStats, setSrcStats] = useState<{ pending: number; decoded: number; itemsExtracted: number } | null>(null);
+  const [decoding, setDecoding] = useState(false);
   const initialised = useRef(false);
+
+  const loadSources = useCallback(() => {
+    fetch("/api/affairs/sources", { cache: "no-store" }).then((r) => r.json())
+      .then((j: { stats: { pending: number; decoded: number; itemsExtracted: number } }) => setSrcStats(j.stats)).catch(() => {});
+  }, []);
+
+  const decodeSources = useCallback(async () => {
+    if (decoding) return;
+    setDecoding(true); setJudgeMsg("");
+    try {
+      const r = await fetch("/api/affairs/sources", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: 3 }) });
+      const d = await r.json() as { decoded?: number; items?: number; failed?: number; error?: string };
+      setJudgeMsg(d.error ? d.error : `decoded ${d.decoded} PDFs → ${d.items} items${d.failed ? ` · ${d.failed} failed` : ""}`);
+    } catch { setJudgeMsg("Decode failed"); }
+    setDecoding(false);
+    loadSources(); void load();
+    setTimeout(() => setJudgeMsg(""), 8000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decoding, loadSources]);
 
   const loadBoard = useCallback(() => {
     fetch("/api/affairs/board", { cache: "no-store" }).then((r) => r.json())
@@ -113,6 +134,7 @@ export default function CurrentAffairsPage() {
     if (initialised.current) return;
     initialised.current = true;
     loadBoard();
+    loadSources();
     (async () => {
       const list = await load();
       const newest = list[0]?.publishedAt ? new Date(list[0].publishedAt).getTime() : 0;
@@ -202,6 +224,12 @@ export default function CurrentAffairsPage() {
             className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] transition-colors",
               worthyOnly ? "border-success/50 bg-success/15 text-success" : "border-line text-ink-2 hover:border-success/40 hover:text-success")}>
             Board-worthy only
+          </button>
+          <button onClick={() => { void decodeSources(); }} disabled={decoding}
+            title={srcStats ? `${srcStats.decoded} PDFs decoded → ${srcStats.itemsExtracted} items · ${srcStats.pending} pending` : "Decode PDFs from your Current Affairs folders"}
+            className="flex items-center gap-1.5 rounded-lg border border-accent-2/40 bg-accent-2/10 px-3 py-1.5 text-[12px] text-accent-2 transition-colors hover:bg-accent-2/20 disabled:opacity-50">
+            {decoding ? <Loader2 size={13} className="animate-spin" /> : <Landmark size={13} />}
+            {decoding ? "Decoding PDFs…" : `Decode sources${srcStats?.pending ? ` (${srcStats.pending})` : ""}`}
           </button>
           <button onClick={() => { void runBoard(); }} disabled={judging}
             title={bstats ? `${bstats.judged} judged · ${bstats.worthy} worthy · ${bstats.pending} pending` : "Judge pending items like the exam board"}
