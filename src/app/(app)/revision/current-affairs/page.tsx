@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Loader2, ChevronLeft, ChevronRight, RefreshCw, Gavel, Layers } from "lucide-react";
+import { CalendarDays, Loader2, ChevronLeft, ChevronRight, RefreshCw, Gavel, Layers, Network, ChevronDown } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { CaDailyQuiz } from "@/components/CaDailyQuiz";
 
 /* Revision → Current Affairs — calendar-first archive (scale-proof).
    One month grid, GitHub-heatmap style: each day cell is coloured by how
@@ -19,6 +20,7 @@ interface SheetItem {
   staticLinks: { paper: string; topic: string }[]; traps: string[]; confusable: string;
 }
 interface DayMeta { day: string; itemCount: number; skipped: number; pending: number }
+interface Cluster { concept: string; papers: string[]; count: number; items: { day: string; affairId: string; headline: string; w25: string }[] }
 interface Sheet { day: string; itemCount: number; content: { items: SheetItem[]; skipped: { count: number; headlines: string[] }; pendingJudgement: number } }
 
 const fmtMonth = (m: string) => new Date(`${m}-15T00:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
@@ -32,7 +34,9 @@ export default function CaRevisionPage() {
   const [monthItems, setMonthItems] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null);
-  const [view, setView] = useState<"day" | "month">("day");
+  const [view, setView] = useState<"day" | "month" | "concepts">("day");
+  const [clusters, setClusters] = useState<Cluster[] | null>(null);
+  const [openCluster, setOpenCluster] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sheetLoading, setSheetLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -60,6 +64,13 @@ export default function CaRevisionPage() {
       })
       .catch(() => { setDays([]); setMonthTop([]); });
   }, [month]);
+
+  /* concepts view → clusters (lazy) */
+  useEffect(() => {
+    if (view !== "concepts" || clusters !== null) return;
+    fetch("/api/revision/ca-sheets?concepts=1", { cache: "no-store" }).then((r) => r.json())
+      .then((j: { clusters: Cluster[] }) => setClusters(j.clusters)).catch(() => setClusters([]));
+  }, [view, clusters]);
 
   /* selected day → ONE sheet */
   useEffect(() => {
@@ -185,11 +196,60 @@ export default function CaRevisionPage() {
             </button>
             <p className="mt-1 px-2 text-[10.5px] text-ink-3">The month&apos;s highest-priority items in one read — your monthly revision pass.</p>
           </Card>
+
+          {/* Concept view switch — news organised by knowledge node, date = metadata */}
+          <Card className="mt-3 animate-fade-up p-3">
+            <button onClick={() => setView(view === "concepts" ? "day" : "concepts")}
+              className={cn("flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left transition-colors", view === "concepts" ? "bg-accent/10" : "hover:bg-surface-2/60")}>
+              <span className="flex items-center gap-1.5 text-[12px] font-medium text-ink"><Network size={13} className="text-accent" /> Concept view</span>
+              <span className="font-mono text-[9.5px] text-ink-3">{clusters ? `${clusters.length} nodes` : "→"}</span>
+            </button>
+            <p className="mt-1 px-2 text-[10.5px] text-ink-3">Recurring themes become one knowledge node — every new story enriches it instead of piling up.</p>
+          </Card>
         </div>
 
-        {/* ── Right: one day OR the month digest ── */}
+        {/* ── Right: one day, the month digest, or the concept graph ── */}
         <div className="min-w-0">
-          {view === "month" ? (
+          {view === "concepts" ? (
+            <Card className="animate-fade-up p-5">
+              <p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2">
+                <Network size={13} className="text-accent" /> Knowledge nodes — organised by concept, dated as metadata
+              </p>
+              <p className="mb-3 text-[11px] text-ink-3">A theme UPSC keeps returning to shows up here as one node with every story attached — natural repetition is the revision.</p>
+              {clusters === null && <div className="flex items-center gap-2 py-6 text-ink-3"><Loader2 size={14} className="animate-spin" /> Clustering…</div>}
+              {clusters?.length === 0 && <p className="text-[12.5px] text-ink-3">No judged items yet — run the Examination Board first.</p>}
+              <div className="space-y-1.5">
+                {clusters?.map((c) => {
+                  const open = openCluster === c.concept;
+                  return (
+                    <div key={c.concept} className="rounded-xl border border-line-subtle">
+                      <button onClick={() => setOpenCluster(open ? null : c.concept)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left">
+                        {open ? <ChevronDown size={14} className="shrink-0 text-accent" /> : <ChevronRight size={14} className="shrink-0 text-ink-3" />}
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{c.concept}</span>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          {c.papers.slice(0, 2).map((p) => <Chip key={p} tone="accent-2">{p}</Chip>)}
+                          <Chip tone={c.count > 1 ? "warning" : "muted"}>{c.count}×</Chip>
+                        </span>
+                      </button>
+                      {open && (
+                        <div className="space-y-2 border-t border-line-subtle px-3 py-3">
+                          {c.items.map((it) => (
+                            <div key={it.affairId}>
+                              <p className="text-[12px] font-medium leading-snug text-ink">
+                                <span className="mr-1.5 font-mono text-[9.5px] text-ink-3">{new Date(it.day).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                                {it.headline}
+                              </p>
+                              {it.w25 && <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-2">{it.w25}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          ) : view === "month" ? (
             <Card className="animate-fade-up p-5">
               <p className="mb-3 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2">
                 <Layers size={13} className="text-accent-2" /> {fmtMonth(month)} — top {monthTop.length} by revision priority
@@ -282,6 +342,9 @@ export default function CaRevisionPage() {
                   </ul>
                 </details>
               )}
+
+              {/* Daily MCQ drill — practice, don't just read */}
+              {sheet.content.items.length > 0 && selected && <CaDailyQuiz day={selected} />}
             </Card>
           )}
         </div>

@@ -16,6 +16,11 @@ export async function GET(req: NextRequest) {
   const month = url.searchParams.get("month");
   const day = url.searchParams.get("day");
 
+  if (url.searchParams.get("concepts")) {
+    const { conceptClusters } = await import("@/lib/ca-quiz");
+    return Response.json({ clusters: await conceptClusters() });
+  }
+
   if (day) {
     const d = new Date(`${day}T00:00:00`);
     if (isNaN(d.getTime())) return Response.json({ error: "bad day" }, { status: 400 });

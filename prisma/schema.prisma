@@ -619,6 +619,7 @@ model CaDailySheet {
   day         DateTime // logical day (04:00 boundary), midnight-normalised
   content     Json     // compiled sheet: items by revisionPriority + skip summary
   itemCount   Int      @default(0) // worthy+marginal items on the sheet
+  quiz        Json?    // daily MCQ drill: {mcqs, sourceHash, attempts[]}
   judgedCount Int      @default(0)
   sourceHash  String   // hash of contributing verdict ids — regenerate on change
   updatedAt   DateTime @updatedAt

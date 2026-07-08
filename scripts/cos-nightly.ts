@@ -31,5 +31,13 @@ async function main() {
   console.log(`⑤ source PDFs: +${scan.added} new/${scan.changed} changed · decoded ${dec.decoded} → ${dec.items} items (${dec.failed} failed)`);
   const { ensureSheets } = await import("../src/lib/ca-sheets");
   console.log(`⑥ daily CA sheets refreshed: ${await ensureSheets()}`);
+  try {
+    const { generateDailyQuiz } = await import("../src/lib/ca-quiz");
+    const yday = new Date(Date.now() - 86400000);
+    const today = new Date();
+    const a = await generateDailyQuiz(yday).catch(() => null);
+    const b = await generateDailyQuiz(today).catch(() => null);
+    console.log(`⑦ MCQ drills ready: ${[a && "yesterday", b && "today"].filter(Boolean).join(" + ") || "none (no sheets/quota)"}`);
+  } catch { console.log("⑦ MCQ drills: skipped"); }
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
