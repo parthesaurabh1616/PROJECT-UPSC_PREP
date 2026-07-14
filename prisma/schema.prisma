@@ -612,6 +612,38 @@ model SourceDoc {
   @@map("source_docs")
 }
 
+// ── Class schedule (StudyIQ) — weekly-PDF detail over the year plan ──
+model ClassOverride {
+  id        String   @id @default(cuid())
+  day       DateTime // midnight-normalised class day
+  track     String   // "PSIR" | "GS"
+  topic     String?  // null = explicitly no class that day
+  time      String?  // e.g. "5:30–9 pm"
+  faculty   String?
+  source    String   // weekly-PDF filename (or "manual")
+  createdAt DateTime @default(now())
+
+  @@unique([day, track])
+  @@map("class_overrides")
+}
+
+// Weekly-schedule PDFs dropped into the Class Schedules folder
+model ScheduleDoc {
+  id        String    @id @default(cuid())
+  path      String    @unique
+  filename  String
+  size      Int
+  mtimeMs   Float
+  status    String    @default("PENDING") // PENDING | DECODED | FAILED
+  entries   Int       @default(0) // ClassOverride rows extracted
+  error     String?
+  decodedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([status])
+  @@map("schedule_docs")
+}
+
 // ── Daily CA revision sheets (compiled from Board verdicts) ───
 model CaDailySheet {
   id          String   @id @default(cuid())

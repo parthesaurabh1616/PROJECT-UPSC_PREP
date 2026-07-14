@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Rocket, Loader2, Plus, Trash2, CheckCircle2, Circle, Flame, Save, History, ListChecks, Gauge, ArrowUpRight,
+  Rocket, Loader2, Plus, Trash2, CheckCircle2, Circle, Flame, Save, History, ListChecks, Gauge, ArrowUpRight, CalendarDays,
 } from "lucide-react";
 import { Card, Chip, Bar } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { psirClassesInRange, psirTestsInRange, PSIR_PAPER_LABEL } from "@/lib/psir-schedule";
 
 /* Sprint Board — the Agile program OS. Metric tasks track themselves from
    the real activity ledger; manual tasks are honest checkboxes. */
@@ -52,19 +51,14 @@ const TEMPLATE = [
   { title: "PSIR: process every class topic (Feynman note + cards)", metric: "manual", target: 1, type: "CLASS" },
 ];
 
-/* This week's PSIR CLASS tickets from the real StudyIQ timetable. */
-function psirWeekTickets(): { title: string; metric: string; target: number; type: string }[] {
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  const end = new Date(start.getTime() + 7 * 86400000 - 1);
-  const classes = psirClassesInRange(start, end).map((c) => ({
-    title: `PSIR class · ${c.paper === "ORIENTATION" ? c.title : `${PSIR_PAPER_LABEL[c.paper]} — ${c.title.split(":")[0]}`}`,
-    metric: "manual", target: 1, type: "CLASS",
-  }));
-  const tests = psirTestsInRange(start, end).map((t) => ({
-    title: `PSIR test ${t.n} · ${t.name}`,
-    metric: "manual", target: 1, type: "PRACTICE",
-  }));
-  return [...classes, ...tests];
+/* This week's CLASS tickets (GS + PSIR, real StudyIQ schedule incl.
+   weekly-PDF topics) — served by /api/program/classes. */
+async function fetchWeekTickets(): Promise<{ title: string; metric: string; target: number; type: string }[]> {
+  try {
+    const j = await fetch("/api/program/classes?days=7", { cache: "no-store" }).then((r) => r.json()) as
+      { tickets: { title: string; metric: string; target: number; type: string }[] };
+    return j.tickets ?? [];
+  } catch { return []; }
 }
 
 export default function ProgramPage() {
@@ -73,6 +67,7 @@ export default function ProgramPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [retro, setRetro] = useState("");
+  const [syncMsg, setSyncMsg] = useState("");
 
   // planner state
   const [goal, setGoal] = useState("");
@@ -165,7 +160,23 @@ export default function ProgramPage() {
 
           {/* Tasks */}
           <Card className="mb-4 animate-fade-up p-5">
-            <p className="mb-3 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2"><ListChecks size={13} className="text-accent" /> Sprint tickets</p>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-2"><ListChecks size={13} className="text-accent" /> Sprint tickets</p>
+              <button
+                onClick={async () => {
+                  setBusy(true);
+                  const r = await fetch("/api/program/classes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sync: true, days: 7 }) })
+                    .then((x) => x.json()).catch(() => null) as { created?: number } | null;
+                  setBusy(false); load();
+                  if (r) setSyncMsg(r.created ? `+${r.created} class tickets` : "already in sync");
+                  setTimeout(() => setSyncMsg(""), 4000);
+                }}
+                disabled={busy}
+                title="Pull this week's GS + PSIR classes (real StudyIQ schedule) onto the board — never duplicates"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-warning transition-colors hover:bg-warning/20 disabled:opacity-50">
+                {busy ? <Loader2 size={11} className="animate-spin" /> : <CalendarDays size={11} />} {syncMsg || "Sync classes"}
+              </button>
+            </div>
             <div className="space-y-2.5">
               {c.tasks.map((t) => (
                 <div
@@ -272,9 +283,9 @@ export default function ProgramPage() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-accent-2/40 bg-accent-2/10 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-accent-2 transition-colors hover:bg-accent-2/20">
               <Plus size={12} /> Load charter template
             </button>
-            <button onClick={() => { const t = psirWeekTickets(); setRows((r) => [...r, ...t.filter((x) => !r.some((y) => y.title === x.title))]); if (!goal) setGoal("Weekly sprint · PSIR class-sync"); }}
+            <button onClick={async () => { const t = await fetchWeekTickets(); setRows((r) => [...r, ...t.filter((x) => !r.some((y) => y.title === x.title))]); if (!goal) setGoal("Weekly sprint · class-sync (GS + PSIR)"); }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/10 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-warning transition-colors hover:bg-warning/20">
-              <Plus size={12} /> Add this week&apos;s PSIR classes
+              <Plus size={12} /> Add this week&apos;s classes (GS + PSIR)
             </button>
           </div>
           <div className="space-y-2">

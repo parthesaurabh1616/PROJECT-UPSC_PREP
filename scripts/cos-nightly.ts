@@ -39,5 +39,10 @@ async function main() {
     const b = await generateDailyQuiz(today).catch(() => null);
     console.log(`⑦ MCQ drills ready: ${[a && "yesterday", b && "today"].filter(Boolean).join(" + ") || "none (no sheets/quota)"}`);
   } catch { console.log("⑦ MCQ drills: skipped"); }
+  const { scanScheduleDocs, decodeScheduleBatch, syncClassTickets } = await import("../src/lib/class-schedule");
+  const ss = await scanScheduleDocs();
+  const sd = await decodeScheduleBatch(2);
+  const ct = await syncClassTickets(2);
+  console.log(`⑧ class schedule: +${ss.added} new/${ss.changed} changed weekly PDFs · decoded ${sd.decoded} (${sd.entries} days) · ${ct.created} class tickets created${ct.reason ? ` (${ct.reason})` : ""}`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

@@ -636,6 +636,38 @@ export async function extractCaFromPdf(pdfPath: string, source: string, dateHint
     }));
 }
 
+// ── Weekly class-schedule PDFs (StudyIQ notices) ──────────────
+export interface ScheduleEntry { date: string; track: "PSIR" | "GS"; topic: string | null; time?: string; faculty?: string }
+
+const SCHEDULE_PDF_SYSTEM = `Today is ${new Date().toDateString()}. You are decoding a StudyIQ weekly class-schedule notice PDF for a UPSC aspirant's planner — the notice covers a week near today, so infer any missing year from today's date. It lists days (Mon–Sat) with date, time, subject, faculty and topic. The track is "PSIR" if the subject/heading says PSIR or Political Science; otherwise it is a GS Foundation subject (Geography, Polity, Economy, History, etc.) → track "GS".
+
+Respond ONLY with valid JSON:
+{"entries":[{
+  "date": "YYYY-MM-DD",
+  "track": "PSIR" | "GS",
+  "topic": "the day's topic" | null,   // null ONLY when the row says "No class"
+  "time": "5:30–9 pm",                 // as printed, en-dash, omit seconds
+  "faculty": "name if printed"
+}]}
+One entry per day per track. Never invent days that are not in the PDF.`;
+
+export async function extractScheduleFromPdf(pdfPath: string): Promise<ScheduleEntry[]> {
+  const raw = await generateFromPdf(pdfPath, SCHEDULE_PDF_SYSTEM, "Extract the weekly schedule as JSON.");
+  const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  let j: { entries?: unknown[] };
+  try { j = JSON.parse(clean); } catch { throw new ChapterAnalysisError("Gemini returned an unparseable schedule."); }
+  return (Array.isArray(j.entries) ? j.entries : [])
+    .filter((x): x is ScheduleEntry => !!x && /^\d{4}-\d{2}-\d{2}$/.test(String((x as ScheduleEntry).date)) && ["PSIR", "GS"].includes(String((x as ScheduleEntry).track)))
+    .slice(0, 20)
+    .map((x) => ({
+      date: String(x.date),
+      track: x.track,
+      topic: x.topic === null || String(x.topic).trim().toLowerCase() === "no class" ? null : String(x.topic).slice(0, 200),
+      time: x.time ? String(x.time).slice(0, 30) : undefined,
+      faculty: x.faculty ? String(x.faculty).slice(0, 60) : undefined,
+    }));
+}
+
 // ── Daily Intelligence Briefing ───────────────────────────────
 export interface BriefingItem { headline: string; why: string; gs: string[]; }
 export interface Briefing { summary: string; items: BriefingItem[]; focus: string[]; }
