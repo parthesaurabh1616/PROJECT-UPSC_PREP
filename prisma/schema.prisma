@@ -612,6 +612,27 @@ model SourceDoc {
   @@map("source_docs")
 }
 
+// ── Class summaries — what was actually learned in each class ──
+// One card per class: subject + syllabus topic + the user's own
+// compressed organiser + anchor hooks. The day-by-day archive IS
+// the pre-exam revision book; saving auto-tracks the topic on the
+// 1/7/21/60/120 ladder so it resurfaces instead of decaying.
+model ClassSummary {
+  id        String   @id @default(cuid())
+  userId    String
+  day       DateTime // class day (midnight local)
+  subject   String   // "PSIR — Paper II", "GS — Geography", …
+  nodeId    String?  // syllabus node id (links the topic ladder)
+  topic     String   // topic title
+  body      String   // the quick organiser (read twice, close it)
+  anchors   String[] // memory hooks ("world of 1945", "G4", …)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, day])
+  @@map("class_summaries")
+}
+
 // ── Class schedule (StudyIQ) — weekly-PDF detail over the year plan ──
 model ClassOverride {
   id        String   @id @default(cuid())

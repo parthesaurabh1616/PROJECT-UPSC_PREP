@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Brain, Loader2, CheckCircle2, ChevronRight, Layers, ListChecks, Trash2, Search, AlertTriangle } from "lucide-react";
+import { Plus, Brain, Loader2, CheckCircle2, ChevronRight, Layers, ListChecks, Trash2, Search, AlertTriangle, NotebookPen } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { TopicMemoryPanel } from "@/components/TopicMemoryPanel";
+import { ClassSummaries } from "@/components/ClassSummaries";
 
-/* Revision Engine — two memory layers, one clear tab each:
+/* Revision Engine — one clear tab per memory layer:
+     · Class summaries — "what I learned in class today", day by day:
+       the pre-exam revision book (each save joins the topic ladder)
      · Review due  — today's flashcard queue (SM-2 micro-memory)
      · All cards   — every saved card: search, filter, delete (proof of save)
-     · Topic ladder— big-picture topics on the 1/7/21/60/120 ladder (COS) */
+     · Topic ladder— whole topics on the 1/7/21/60/120 ladder (COS) */
 
 interface RevisionCard {
   id: string; front: string; back: string; subject: string | null;
@@ -28,10 +31,10 @@ const GRADES = [
 
 const SUBJECTS = ["PSIR", "Polity", "History", "Geography", "Economy", "Environment", "Ethics", "Science & Tech", "Current Affairs", "Essay"];
 
-type Tab = "due" | "all" | "topics";
+type Tab = "classes" | "due" | "all" | "topics";
 
 export default function RevisionPage() {
-  const [tab, setTab] = useState<Tab>("due");
+  const [tab, setTab] = useState<Tab>("classes");
   const [cards, setCards] = useState<RevisionCard[]>([]);       // due queue
   const [allCards, setAllCards] = useState<RevisionCard[]>([]); // full library
   const [idx, setIdx] = useState(0);
@@ -133,7 +136,7 @@ export default function RevisionPage() {
         <div>
           <h2 className="font-display text-[24px] font-semibold tracking-tight text-ink">Revision Engine</h2>
           <p className="mt-0.5 text-[12.5px] text-ink-3">
-            Two memory layers: <span className="text-ink-2">flashcards</span> for facts (SM-2) · <span className="text-ink-2">topic ladder</span> for whole topics (1→7→21→60→120 days).
+            <span className="text-ink-2">Class summaries</span> — what each class taught, day by day · <span className="text-ink-2">flashcards</span> for facts (SM-2) · <span className="text-ink-2">topic ladder</span> for whole topics (1→7→21→60→120 days).
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -148,6 +151,7 @@ export default function RevisionPage() {
       {/* Tabs — one thing on screen at a time */}
       <div className="flex animate-fade-up gap-1.5 border-b border-line pb-0">
         {([
+          { k: "classes" as Tab, icon: NotebookPen, label: "Class summaries" },
           { k: "due" as Tab, icon: Brain, label: `Review due (${cards.length})` },
           { k: "all" as Tab, icon: ListChecks, label: `All cards (${allCards.length})` },
           { k: "topics" as Tab, icon: Layers, label: "Topic ladder" },
@@ -205,6 +209,9 @@ export default function RevisionPage() {
       )}
 
       {loading && <div className="flex items-center gap-2 py-10 text-ink-3"><Loader2 size={16} className="animate-spin" /> Loading cards…</div>}
+
+      {/* ── TAB: Class summaries — the day-by-day class diary ── */}
+      {tab === "classes" && <ClassSummaries />}
 
       {/* ── TAB: Review due ── */}
       {!loading && tab === "due" && (
