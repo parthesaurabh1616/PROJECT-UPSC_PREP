@@ -8,7 +8,7 @@ interface Note {
   id: string; title: string; content: string; subject: string | null; tags: string[]; updatedAt: string;
 }
 
-const SUBJECTS = ["GS-I History", "GS-I Geography", "GS-II Polity", "GS-II IR", "GS-III Economy", "GS-III Environment", "GS-IV Ethics", "Optional Sociology", "Current Affairs", "Essay"];
+const SUBJECTS = ["GS-I History", "GS-I Geography", "GS-II Polity", "GS-II IR", "GS-III Economy", "GS-III Environment", "GS-IV Ethics", "Optional PSIR", "Current Affairs", "Essay"];
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([]);

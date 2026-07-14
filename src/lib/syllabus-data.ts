@@ -1,9 +1,9 @@
 /* ════════════════════════════════════════════════════════════
    OFFICIAL UPSC CSE SYLLABUS — verbatim structured reference.
    Source: UPSC Civil Services Examination official syllabus
-   (Prelims Paper I & II; Mains Essay, GS-I…IV) and the three
-   optional syllabi the user supplied (Sociology, PSIR, Public
-   Administration). This is factual reference data — every topic
+   (Prelims Paper I & II; Mains Essay, GS-I…IV) and the optional
+   syllabi (PSIR — the sealed choice — plus Public Administration
+   for reference). This is factual reference data — every topic
    is the Commission's own wording. Live platform connections
    (PYQ / NCERT / current affairs) are layered on at read time
    via semantic search, never invented here.
@@ -164,47 +164,7 @@ const MAINS_GS: SylPaper[] = [
 ];
 
 // ── OPTIONALS ─────────────────────────────────────────────────
-const SOCIOLOGY: SylPaper[] = [
-  {
-    code: "OPT-SOC-I", name: "Sociology — Paper I: Fundamentals of Sociology", stage: "mains", marks: 250, counted: true, kind: "OPTIONAL",
-    sections: [{ nodes: [
-      n("soc1-disc", "Sociology — The Discipline", ["Modernity and social changes in Europe and emergence of Sociology", "Scope of the subject and comparison with other social sciences", "Sociology and common sense"]),
-      n("soc1-science", "Sociology as Science", ["Science, scientific method and critique", "Major theoretical strands of research methodology", "Positivism and its critique; Fact value and objectivity; Non-positivist methodologies"]),
-      n("soc1-methods", "Research Methods and Analysis", ["Qualitative and quantitative methods", "Techniques of data collection", "Variables, sampling, hypothesis, reliability and validity"]),
-      n("soc1-thinkers", "Sociological Thinkers", ["Karl Marx — historical materialism, alienation, class struggle", "Emile Durkheim — division of labour, social fact, suicide, religion", "Max Weber — social action, ideal types, authority, bureaucracy", "Talcott Parsons; Robert K. Merton; Mead — self and identity"]),
-      n("soc1-strat", "Stratification and Mobility", ["Equality, inequality, hierarchy, exclusion, poverty and deprivation", "Theories — functionalist, Marxist, Weberian", "Dimensions — class, status groups, gender, ethnicity, race; social mobility"]),
-      n("soc1-work", "Works and Economic Life", ["Social organization of work in slave, feudal, industrial/capitalist society", "Formal and informal organization of work; labour and society"]),
-      n("soc1-politics", "Politics and Society", ["Sociological theories of power; power elite, bureaucracy, pressure groups, parties", "Nation, state, citizenship, democracy, civil society, ideology; protest, movements, revolution"]),
-      n("soc1-religion", "Religion and Society", ["Sociological theories of religion; types of religious practices", "Religion in modern society — science, secularization, revivalism, fundamentalism"]),
-      n("soc1-kinship", "Systems of Kinship", ["Family, household, marriage; types and forms of family", "Lineage and descent; patriarchy and sexual division of labour; contemporary trends"]),
-      n("soc1-change", "Social Change in Modern Society", ["Theories of social change; development and dependency", "Agents of change; education, science, technology and social change"]),
-    ] }],
-  },
-  {
-    code: "OPT-SOC-II", name: "Sociology — Paper II: Indian Society — Structure and Change", stage: "mains", marks: 250, counted: true, kind: "OPTIONAL",
-    sections: [
-      { heading: "A. Introducing Indian Society", nodes: [
-        n("soc2-persp", "Perspectives on the study of Indian society", ["Indology (G.S. Ghurye); Structural functionalism (M.N. Srinivas); Marxist sociology (A.R. Desai)"]),
-        n("soc2-colonial", "Impact of colonial rule on Indian society", ["Social background of Indian nationalism; modernization of Indian tradition; protests and movements; social reforms"]),
-      ] },
-      { heading: "B. Social Structure", nodes: [
-        n("soc2-rural", "Rural and Agrarian Social Structure", ["Idea of Indian village and village studies; agrarian structure, land tenure, land reforms"]),
-        n("soc2-caste", "Caste System", ["Perspectives — Ghurye, Srinivas, Dumont, Beteille; features; untouchability"]),
-        n("soc2-tribe", "Tribal communities in India", ["Definitional problems, geographical spread, colonial policies, integration and autonomy"]),
-        n("soc2-class", "Social Classes in India", ["Agrarian, industrial class structure; middle classes"]),
-        n("soc2-kin", "Systems of Kinship in India; Religion and Society — communities and minorities"),
-      ] },
-      { heading: "C. Social Changes in India", nodes: [
-        n("soc2-vision", "Visions of Social Change", ["Development planning and mixed economy; constitution, law and social change; education"]),
-        n("soc2-agrarian", "Rural and Agrarian transformation", ["Rural development programmes; green revolution; changing modes of production; rural labour, bondage, migration"]),
-        n("soc2-indus", "Industrialization and Urbanisation", ["Modern industry; urban settlements; working class; informal sector, child labour; slums"]),
-        n("soc2-movements", "Social Movements", ["Peasant, women's, backward classes & Dalit, environmental, ethnicity and identity movements"]),
-        n("soc2-pop", "Population Dynamics; Challenges of Social Transformation", ["Displacement, poverty, violence against women, caste & ethnic conflicts, communalism, illiteracy"]),
-      ] },
-    ],
-  },
-];
-
+// (Sociology removed — the optional is decided and SEALED: PSIR.)
 const PSIR: SylPaper[] = [
   {
     code: "OPT-PSIR-I", name: "PSIR — Paper I: Political Theory and Indian Politics", stage: "mains", marks: 250, counted: true, kind: "OPTIONAL",
@@ -309,7 +269,6 @@ export interface SylGroup { key: string; label: string; stage: "prelims" | "main
 export const SYLLABUS: SylGroup[] = [
   { key: "prelims", label: "Prelims", stage: "prelims", papers: PRELIMS },
   { key: "mains-gs", label: "Mains · Essay & GS", stage: "mains", papers: MAINS_GS },
-  { key: "opt-soc", label: "Optional · Sociology", stage: "mains", papers: SOCIOLOGY },
   { key: "opt-psir", label: "Optional · Political Science & IR", stage: "mains", papers: PSIR },
   { key: "opt-pubad", label: "Optional · Public Administration", stage: "mains", papers: PUB_AD },
 ];

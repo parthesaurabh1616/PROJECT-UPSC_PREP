@@ -63,7 +63,7 @@ export const subjects = [
   { name: "Environment", paper: "GS-III", pct: 44 },
   { name: "Science & Tech", paper: "GS-III", pct: 38 },
   { name: "Ethics", paper: "GS-IV", pct: 35 },
-  { name: "Sociology (Optional)", paper: "OPT", pct: 48 },
+  { name: "PSIR (Optional)", paper: "OPT", pct: 48 },
 ];
 
 /* ── Today's focus ── */
@@ -75,7 +75,7 @@ export const todayTasks = [
   { text: "Spectrum Ch.18 — Quit India Movement", tag: "GS-I HISTORY", time: "14:00", dur: "55m", done: true },
   { text: "Shankar IAS Ch.6 — Biodiversity", tag: "GS-III ENV", time: "16:00", dur: "1h 15m", done: false },
   { text: "PYQ practice — 20 MCQs, Modern History", tag: "PRELIMS", time: "17:30", dur: "30m", done: false },
-  { text: "Sociology Ch.4 — Social Stratification", tag: "OPTIONAL", time: "19:00", dur: "1h 30m", done: false },
+  { text: "PSIR — India and the nuclear question (class notes)", tag: "OPTIONAL", time: "19:00", dur: "1h 30m", done: false },
   { text: "End-of-day reflection · update revision log", tag: "SHUTDOWN", time: "21:30", dur: "10m", done: false },
 ];
 
@@ -173,7 +173,7 @@ export const notesTree: TreeNode[] = [
   },
   { label: "GS-III — Economy & Environment", icon: "Coins" },
   { label: "GS-IV — Ethics", icon: "Compass" },
-  { label: "Optional — Sociology", icon: "GraduationCap" },
+  { label: "Optional — PSIR", icon: "GraduationCap" },
   { label: "Current Affairs", icon: "Newspaper" },
   { label: "Essays", icon: "PenLine" },
 ];
@@ -368,7 +368,7 @@ export const library: Book[] = [
   { title: "NCERT — History (Class VI–XII)", author: "NCERT", kind: "NCERT", completion: 100, revisions: 2, pages: 1840, accent: "success" },
   { title: "NCERT — Geography (Class VI–XII)", author: "NCERT", kind: "NCERT", completion: 100, revisions: 2, pages: 1620, accent: "success" },
   { title: "Economic Survey 2025–26", author: "Ministry of Finance", kind: "Govt Report", completion: 30, revisions: 0, pages: 540, accent: "warning" },
-  { title: "Sociology — Principles", author: "Haralambos & Holborn", kind: "Optional", completion: 48, revisions: 1, pages: 880, accent: "accent" },
+  { title: "Global Politics (PSIR)", author: "Andrew Heywood", kind: "Optional", completion: 0, revisions: 0, pages: 560, accent: "accent" },
 ];
 
 export const libraryStats = [
