@@ -2,8 +2,7 @@
    OFFICIAL UPSC CSE SYLLABUS — verbatim structured reference.
    Source: UPSC Civil Services Examination official syllabus
    (Prelims Paper I & II; Mains Essay, GS-I…IV) and the optional
-   syllabi (PSIR — the sealed choice — plus Public Administration
-   for reference). This is factual reference data — every topic
+   syllabus (PSIR — the sealed choice). This is factual reference data — every topic
    is the Commission's own wording. Live platform connections
    (PYQ / NCERT / current affairs) are layered on at read time
    via semantic search, never invented here.
@@ -224,45 +223,6 @@ const PSIR: SylPaper[] = [
   },
 ];
 
-const PUB_AD: SylPaper[] = [
-  {
-    code: "OPT-PUBAD-I", name: "Public Administration — Paper I: Administrative Theory", stage: "mains", marks: 250, counted: true, kind: "OPTIONAL",
-    sections: [{ nodes: [
-      n("pa1-intro", "Introduction", ["Meaning, scope and significance; Wilson's vision; evolution; New Public Administration; Public Choice; Good Governance; New Public Management"]),
-      n("pa1-thought", "Administrative Thought", ["Scientific Management; Classical Theory; Weber's bureaucratic model; Follett; Human Relations (Mayo); Barnard; Simon; participative management"]),
-      n("pa1-behaviour", "Administrative Behaviour", ["Decision-making; communication; morale; motivation theories; theories of leadership"]),
-      n("pa1-org", "Organisations", ["Systems, contingency theories; structure and forms; regulatory authorities; Public-Private Partnerships"]),
-      n("pa1-account", "Accountability and Control", ["Legislative, executive, judicial control; citizen and administration; RTI; social audit; citizen's charters"]),
-      n("pa1-law", "Administrative Law", ["Dicey; delegated legislation; administrative tribunals"]),
-      n("pa1-comp", "Comparative Public Administration", ["Ecology and administration; Riggsian models and critique"]),
-      n("pa1-dev", "Development Dynamics", ["Concept of development; anti-development thesis; bureaucracy and development; liberalisation; self-help group movement"]),
-      n("pa1-personnel", "Personnel Administration", ["Recruitment, training, career advancement, position classification, performance appraisal; code of conduct; administrative ethics"]),
-      n("pa1-policy", "Public Policy", ["Models of policy-making; conceptualisation, implementation, monitoring, evaluation; state theories and policy formulation"]),
-      n("pa1-techniques", "Techniques of Administrative Improvement", ["O&M, work study; e-governance and IT; network analysis, MIS, PERT, CPM"]),
-      n("pa1-finance", "Financial Administration", ["Monetary and fiscal policies; public debt; budgets — types and forms; budgetary process; accounts and audit"]),
-    ] }],
-  },
-  {
-    code: "OPT-PUBAD-II", name: "Public Administration — Paper II: Indian Administration", stage: "mains", marks: 250, counted: true, kind: "OPTIONAL",
-    sections: [{ nodes: [
-      n("pa2-evolution", "Evolution of Indian Administration", ["Kautilya's Arthashastra; Mughal administration; legacy of British rule"]),
-      n("pa2-framework", "Philosophical and Constitutional framework of government", ["Constitutionalism; political culture; bureaucracy and democracy; bureaucracy and development"]),
-      n("pa2-psu", "Public Sector Undertakings", ["Forms of PSUs; autonomy, accountability and control; impact of liberalization and privatization"]),
-      n("pa2-union", "Union Government and Administration", ["Executive, Parliament, Judiciary; Cabinet Secretariat; PMO; Central Secretariat; Ministries and Departments"]),
-      n("pa2-plans", "Plans and Priorities", ["Machinery of planning; Planning Commission / NITI; decentralized planning"]),
-      n("pa2-state", "State Government and Administration", ["Union-State relations; Governor; CM; Chief Secretary; State Secretariat; Directorates"]),
-      n("pa2-district", "District Administration since Independence", ["Changing role of the Collector; development management; democratic decentralization"]),
-      n("pa2-civil", "Civil Services", ["Structure, recruitment, training; good governance initiatives; neutrality; activism"]),
-      n("pa2-financial", "Financial Management", ["Budget as a political instrument; parliamentary control; CGA and CAG"]),
-      n("pa2-reforms", "Administrative Reforms since Independence", ["Important committees and commissions; problems of implementation"]),
-      n("pa2-rural", "Rural Development", ["Programmes; Panchayati Raj; 73rd Constitutional amendment"]),
-      n("pa2-urban", "Urban Local Government", ["74th Amendment; municipal governance; city management"]),
-      n("pa2-law", "Law and Order Administration", ["National Police Commission; central & state agencies; criminalisation of politics; police reforms"]),
-      n("pa2-issues", "Significant issues in Indian Administration", ["Values in public service; regulatory commissions; NHRC; corruption; disaster management"]),
-    ] }],
-  },
-];
-
 // ── Exported registry ─────────────────────────────────────────
 export interface SylGroup { key: string; label: string; stage: "prelims" | "mains"; papers: SylPaper[] }
 
@@ -270,7 +230,6 @@ export const SYLLABUS: SylGroup[] = [
   { key: "prelims", label: "Prelims", stage: "prelims", papers: PRELIMS },
   { key: "mains-gs", label: "Mains · Essay & GS", stage: "mains", papers: MAINS_GS },
   { key: "opt-psir", label: "Optional · Political Science & IR", stage: "mains", papers: PSIR },
-  { key: "opt-pubad", label: "Optional · Public Administration", stage: "mains", papers: PUB_AD },
 ];
 
 export function syllabusStats() {

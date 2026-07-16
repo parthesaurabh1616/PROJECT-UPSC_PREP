@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { NotebookPen, Loader2, CheckCircle2, AlertTriangle, Search, Trash2, Pencil, ChevronDown, ChevronUp, Anchor, CalendarDays, X } from "lucide-react";
+import { NotebookPen, Loader2, CheckCircle2, AlertTriangle, Search, Trash2, Pencil, ChevronDown, ChevronUp, Anchor, CalendarDays, X, FolderOpen } from "lucide-react";
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { SYLLABUS } from "@/lib/syllabus-data";
@@ -17,13 +17,34 @@ interface Summary {
   topic: string; body: string; anchors: string[]; createdAt: string;
 }
 
-/* Flatten the official syllabus into paper → topics for the picker. */
+/* Flatten the official syllabus into paper → topics for the picker.
+   Labels are the subjects the aspirant actually thinks in:
+   PSIR (the optional) · GS-I…GS-IV · Essay · Prelims. */
+function paperMeta(groupKey: string, code: string, name: string): { label: string; bucket: string } {
+  if (code.startsWith("OPT-PSIR")) return { label: `PSIR · Paper ${code.endsWith("II") ? "II" : "I"}`, bucket: "PSIR" };
+  if (groupKey === "prelims") return { label: code === "CSAT" ? "Prelims · CSAT" : "Prelims · GS Paper I", bucket: "Prelims" };
+  if (code === "ESSAY") return { label: "Essay", bucket: "Essay" };
+  if (/^GS-(IV|III|II|I)$/.test(code)) return { label: code, bucket: code };
+  return { label: name.split(":")[0].trim(), bucket: "Other" };
+}
+
 const PAPERS = SYLLABUS.flatMap((g) =>
   g.papers.map((p) => ({
-    label: `${g.label} · ${p.name.split(":")[0].trim()}`,
+    ...paperMeta(g.key, p.code, p.name),
     topics: p.sections.flatMap((s) => s.nodes.map((nd) => ({ id: nd.id, title: nd.title, section: s.heading ?? "" }))),
   }))
 );
+
+/* Subject bucket for a stored summary (legacy long labels still resolve). */
+const BUCKET_ORDER = ["PSIR", "GS-I", "GS-II", "GS-III", "GS-IV", "Essay", "Prelims", "Other"];
+function bucketOf(subject: string): string {
+  if (subject.includes("PSIR") || subject.includes("Political Science")) return "PSIR";
+  const gs = subject.match(/^GS-(IV|III|II|I)\b/) ?? subject.match(/GS-(IV|III|II|I)\b/);
+  if (gs) return `GS-${gs[1]}`;
+  if (subject.startsWith("Prelims") || subject.includes("CSAT")) return "Prelims";
+  if (subject.startsWith("Essay")) return "Essay";
+  return "Other";
+}
 const CUSTOM = "__custom__";
 
 const dayKey = (iso: string) => {
@@ -42,7 +63,7 @@ export function ClassSummaries() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [day, setDay] = useState(todayIso());
-  const [paperIdx, setPaperIdx] = useState(() => Math.max(0, PAPERS.findIndex((p) => p.label.includes("Political Science"))));
+  const [paperIdx, setPaperIdx] = useState(() => Math.max(0, PAPERS.findIndex((p) => p.bucket === "PSIR")));
   const [topicId, setTopicId] = useState<string>("");
   const [customTopic, setCustomTopic] = useState("");
   const [body, setBody] = useState("");
@@ -51,6 +72,7 @@ export function ClassSummaries() {
   const [error, setError] = useState("");
   const [savedMsg, setSavedMsg] = useState("");
   const [q, setQ] = useState("");
+  const [view, setView] = useState<"subject" | "day">("subject");
   const [open, setOpen] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
@@ -146,6 +168,16 @@ export function ClassSummaries() {
     return [...m.entries()];
   }, [filtered]);
 
+  const bySubject = useMemo(() => {
+    const m = new Map<string, Summary[]>();
+    for (const s of filtered) {
+      const b = bucketOf(s.subject);
+      if (!m.has(b)) m.set(b, []);
+      m.get(b)!.push(s); // already day-desc from the API
+    }
+    return BUCKET_ORDER.filter((b) => m.has(b)).map((b) => [b, m.get(b)!] as const);
+  }, [filtered]);
+
   if (rows === null) return <div className="flex items-center gap-2 py-10 text-ink-3"><Loader2 size={16} className="animate-spin" /> Opening the class diary…</div>;
 
   return (
@@ -225,13 +257,24 @@ export function ClassSummaries() {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search + view toggle */}
       {rows.length > 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-2/40 px-3 py-2">
-          <Search size={13} className="shrink-0 text-ink-3" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search topic, content, anchors…"
-            className="w-full bg-transparent text-[13px] text-ink placeholder:text-ink-3 focus:outline-none" />
-          <span className="shrink-0 font-mono text-[10px] text-ink-3">{rows.length} summaries</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-line bg-surface-2/40 px-3 py-2">
+            <Search size={13} className="shrink-0 text-ink-3" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search topic, content, anchors…"
+              className="w-full bg-transparent text-[13px] text-ink placeholder:text-ink-3 focus:outline-none" />
+            <span className="shrink-0 font-mono text-[10px] text-ink-3">{rows.length} summaries</span>
+          </div>
+          <div className="flex overflow-hidden rounded-lg border border-line">
+            {([["subject", "By subject"], ["day", "By day"]] as const).map(([v, label]) => (
+              <button key={v} onClick={() => setView(v)}
+                className={cn("px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] transition-colors",
+                  view === v ? "bg-accent/15 text-accent" : "text-ink-3 hover:text-ink")}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -245,43 +288,61 @@ export function ClassSummaries() {
         </Card>
       )}
 
-      {/* Day-by-day archive */}
-      {byDay.map(([k, list]) => (
-        <div key={k}>
-          <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
-            <CalendarDays size={11} className="text-accent" /> {fmtDay(list[0].day)}
-          </p>
-          <div className="space-y-2">
-            {list.map((s) => {
-              const expanded = open.has(s.id);
-              return (
-                <Card key={s.id} className="p-4">
-                  <div className="flex items-start gap-3">
-                    <button onClick={() => toggle(s.id)} className="min-w-0 flex-1 text-left">
-                      <p className="text-[13.5px] font-semibold text-ink hover:text-accent">{s.topic}</p>
-                      <p className="mt-0.5 font-mono text-[9.5px] uppercase tracking-wider text-ink-3">{s.subject}{s.nodeId ? " · on the ladder" : ""}</p>
-                    </button>
-                    <button onClick={() => startEdit(s)} title="Edit" className="text-ink-3 hover:text-accent"><Pencil size={14} /></button>
-                    <button onClick={() => remove(s)} title="Delete" className="text-ink-3 hover:text-danger"><Trash2 size={14} /></button>
-                    <button onClick={() => toggle(s.id)} className="text-ink-3">{expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>
-                  </div>
-                  {expanded && (
-                    <div className="mt-3 border-t border-line-subtle pt-3">
-                      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-2">{s.body}</p>
-                    </div>
-                  )}
-                  {s.anchors.length > 0 && (
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      <Anchor size={11} className="text-accent-2" />
-                      {s.anchors.map((a) => <Chip key={a} tone="accent-2">{a}</Chip>)}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+      {/* Archive — grouped by subject (PSIR · GS-I…GS-IV · Essay · Prelims) or by class day */}
+      {view === "subject"
+        ? bySubject.map(([bucket, list]) => (
+            <div key={bucket}>
+              <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
+                <FolderOpen size={11} className="text-accent" /> {bucket === "PSIR" ? "PSIR — Optional" : bucket}
+                <span className="normal-case tracking-normal">· {list.length} summar{list.length === 1 ? "y" : "ies"}</span>
+              </p>
+              <div className="space-y-2">
+                {list.map((s) => <SummaryCard key={s.id} s={s} showDay expanded={open.has(s.id)} onToggle={toggle} onEdit={startEdit} onRemove={remove} />)}
+              </div>
+            </div>
+          ))
+        : byDay.map(([k, list]) => (
+            <div key={k}>
+              <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
+                <CalendarDays size={11} className="text-accent" /> {fmtDay(list[0].day)}
+              </p>
+              <div className="space-y-2">
+                {list.map((s) => <SummaryCard key={s.id} s={s} showDay={false} expanded={open.has(s.id)} onToggle={toggle} onEdit={startEdit} onRemove={remove} />)}
+              </div>
+            </div>
+          ))}
     </div>
+  );
+}
+
+function SummaryCard({ s, showDay, expanded, onToggle, onEdit, onRemove }: {
+  s: Summary; showDay: boolean; expanded: boolean;
+  onToggle: (id: string) => void; onEdit: (s: Summary) => void; onRemove: (s: Summary) => void;
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-start gap-3">
+        <button onClick={() => onToggle(s.id)} className="min-w-0 flex-1 text-left">
+          <p className="text-[13.5px] font-semibold text-ink hover:text-accent">{s.topic}</p>
+          <p className="mt-0.5 font-mono text-[9.5px] uppercase tracking-wider text-ink-3">
+            {showDay ? `${fmtDay(s.day)} · ` : ""}{s.subject}{s.nodeId ? " · on the ladder" : ""}
+          </p>
+        </button>
+        <button onClick={() => onEdit(s)} title="Edit" className="text-ink-3 hover:text-accent"><Pencil size={14} /></button>
+        <button onClick={() => onRemove(s)} title="Delete" className="text-ink-3 hover:text-danger"><Trash2 size={14} /></button>
+        <button onClick={() => onToggle(s.id)} className="text-ink-3">{expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>
+      </div>
+      {expanded && (
+        <div className="mt-3 border-t border-line-subtle pt-3">
+          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink-2">{s.body}</p>
+        </div>
+      )}
+      {s.anchors.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <Anchor size={11} className="text-accent-2" />
+          {s.anchors.map((a) => <Chip key={a} tone="accent-2">{a}</Chip>)}
+        </div>
+      )}
+    </Card>
   );
 }
