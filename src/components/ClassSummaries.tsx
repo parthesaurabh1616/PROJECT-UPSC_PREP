@@ -113,7 +113,10 @@ export function ClassSummaries() {
         nodeId: topicId === CUSTOM ? null : topicId,
         topic: topicTitle,
         body,
-        anchors: anchors.split(",").map((a) => a.trim()).filter(Boolean),
+        /* Split on comma, middle-dot, semicolon or newline. Pasting a
+           "a · b · c" line used to land as ONE 500-char anchor instead
+           of three hooks — the chips are only useful when they're atomic. */
+        anchors: anchors.split(/[,;·•\n]/).map((a) => a.trim()).filter(Boolean),
       };
       const res = await fetch("/api/revision/class-summaries", {
         method: editId ? "PATCH" : "POST",
@@ -185,7 +188,7 @@ export function ClassSummaries() {
       {/* Intro + actions */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[640px] text-[12px] leading-relaxed text-ink-3">
-          After every class: write the <span className="text-ink-2">quick organiser</span> in your own words, pick the exact syllabus topic, add 5–7 <span className="text-ink-2">anchors</span>.
+          After every class: write the <span className="text-ink-2">quick organiser</span> in your own words, pick the exact syllabus topic, add 8–20 <span className="text-ink-2">anchors</span> — one idea each, separated by <span className="text-ink-2">,</span> or <span className="text-ink-2">·</span>.
           Day by day this becomes your pre-exam revision book — and each topic joins the 1→7→21→60→120-day ladder automatically.
         </p>
         <button onClick={() => { if (showForm) { resetForm(); } setShowForm(!showForm); }}
@@ -232,7 +235,7 @@ export function ClassSummaries() {
               className="w-full resize-y rounded-lg border border-line bg-surface-2 p-3 text-[13px] leading-relaxed text-ink outline-none focus:border-accent/50" />
           </div>
           <div>
-            <label className="mb-1 block text-[10.5px] uppercase tracking-widest text-ink-3">Anchors — comma-separated memory hooks</label>
+            <label className="mb-1 block text-[10.5px] uppercase tracking-widest text-ink-3">Anchors — one idea each, split on , or ·</label>
             <input value={anchors} onChange={(e) => setAnchors(e.target.value)}
               placeholder="world of 1945, 2 lakh+ peacekeepers, G4, Coffee Club / UfC, China blocks, veto = gatekeepers are beneficiaries"
               className="w-full rounded-lg border border-line bg-surface-2 px-2.5 py-2 text-[12.5px] text-ink outline-none focus:border-accent/50" />
@@ -340,7 +343,7 @@ function SummaryCard({ s, showDay, expanded, onToggle, onEdit, onRemove }: {
       {s.anchors.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <Anchor size={11} className="text-accent-2" />
-          {s.anchors.map((a) => <Chip key={a} tone="accent-2">{a}</Chip>)}
+          {s.anchors.map((a, i) => <Chip key={`${i}-${a}`} tone="accent-2">{a}</Chip>)}
         </div>
       )}
     </Card>

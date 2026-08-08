@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { scanSources, decodeSourceBatch, sourceStats } from "@/lib/ca-sources";
 
 /**
- * CA source folders (the user's coaching/newspaper PDFs on OneDrive).
+ * CA source folders (the user's coaching/newspaper PDFs in the library).
  *   GET  → scan folders (register new/changed files) + stats + recent docs
  *   POST → decode a batch of pending PDFs (default 3; quota-aware)
  */

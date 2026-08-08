@@ -1,7 +1,7 @@
 /* ════════════════════════════════════════════════════════════════
    CA source-folder ingestion — the user's coaching/newspaper PDFs.
 
-   He drops files into the OneDrive folders exactly as he already does;
+   He drops files into the library folders exactly as he already does;
    the platform picks them up: scan (register/refresh) → decode (Gemini
    OCR → CurrentAffair items, source-tagged, dated from the filename)
    → Examination Board → daily revision sheets. Fully idempotent:
@@ -11,8 +11,9 @@ import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/db";
 import { extractCaFromPdf } from "@/lib/ai";
+import { libraryPath } from "@/lib/library-root";
 
-export const SOURCE_ROOT = "C:\\Users\\saura\\OneDrive\\Desktop\\UPSC PREP\\Current Affairs";
+export const SOURCE_ROOT = libraryPath("Current Affairs");
 
 const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 

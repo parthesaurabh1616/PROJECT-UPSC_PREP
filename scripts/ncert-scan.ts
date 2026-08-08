@@ -11,9 +11,10 @@
 import { PrismaClient } from "@prisma/client";
 import fs from "fs";
 import path from "path";
+import { libraryPath } from "../src/lib/library-root";
 
 const prisma = new PrismaClient();
-const ROOT = "C:\\Users\\saura\\OneDrive\\Desktop\\UPSC PREP\\NCERT's";
+const ROOT = libraryPath("NCERT's");
 
 // ── Subject normalization ─────────────────────────────────────
 function normSubject(raw: string): string {

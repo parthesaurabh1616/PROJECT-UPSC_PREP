@@ -9,9 +9,10 @@
 import { PrismaClient } from "@prisma/client";
 import fs from "fs";
 import path from "path";
+import { libraryPath } from "../src/lib/library-root";
 
 const prisma = new PrismaClient();
-const ROOT = "C:\\Users\\saura\\OneDrive\\Desktop\\UPSC PREP\\PYQ'S";
+const ROOT = libraryPath("PYQ'S");
 
 // ── Extract a paper's number (I/II/III/IV), format-agnostic ───
 //    Handles "GenStud_III", "PAPER-II", "PAPER I", "P_II", "_I_0",

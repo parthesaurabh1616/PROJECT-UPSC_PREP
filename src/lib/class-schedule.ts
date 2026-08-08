@@ -175,8 +175,9 @@ export async function syncClassTickets(days = 2): Promise<{ created: number; ski
 /* ── Weekly-schedule PDF pickup (Class Schedules folder) ──────── */
 import fs from "fs";
 import path from "path";
+import { libraryPath } from "@/lib/library-root";
 
-export const SCHEDULE_ROOT = "C:\\Users\\saura\\OneDrive\\Desktop\\UPSC PREP\\Class Schedules";
+export const SCHEDULE_ROOT = libraryPath("Class Schedules");
 
 /** Register new/changed weekly-schedule PDFs (idempotent). */
 export async function scanScheduleDocs(): Promise<{ found: number; added: number; changed: number }> {

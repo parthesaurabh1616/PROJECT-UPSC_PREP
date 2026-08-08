@@ -11,8 +11,9 @@
 import fs from "fs";
 import path from "path";
 import { parseDayFromName } from "@/lib/ca-sources";
+import { libraryPath } from "@/lib/library-root";
 
-export const CRUX_ROOT = "C:\\Users\\saura\\OneDrive\\Desktop\\UPSC PREP\\Crux";
+export const CRUX_ROOT = libraryPath("Crux");
 
 const EXTS: Record<string, string> = {
   ".pdf": "application/pdf",
