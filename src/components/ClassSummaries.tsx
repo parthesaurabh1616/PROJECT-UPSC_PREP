@@ -96,13 +96,16 @@ export function ClassSummaries() {
     const pi = PAPERS.findIndex((p) => p.label === s.subject);
     if (pi >= 0) { setPaperIdx(pi); setTopicId(s.nodeId ?? CUSTOM); }
     else { setTopicId(CUSTOM); }
-    if (!s.nodeId) setCustomTopic(s.topic);
+    setCustomTopic(s.topic); // always editable, so "… — Plato" survives an edit
     setBody(s.body); setAnchors(s.anchors.join(", ")); setError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const save = async () => {
-    const topicTitle = topicId === CUSTOM ? customTopic.trim() : topic?.title ?? "";
+    /* The title is always the editable field; the syllabus node only seeds it.
+       Keeps the ladder linked by nodeId while the card can still say which
+       thinker the class actually covered. */
+    const topicTitle = customTopic.trim() || (topicId === CUSTOM ? "" : topic?.title ?? "");
     if (!topicTitle) { setError("Pick the topic (or type a custom one)."); return; }
     if (!body.trim()) { setError("The summary itself is the whole point — write it."); return; }
     setSaving(true); setError(""); setSavedMsg("");
@@ -188,7 +191,7 @@ export function ClassSummaries() {
       {/* Intro + actions */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[640px] text-[12px] leading-relaxed text-ink-3">
-          After every class: write the <span className="text-ink-2">quick organiser</span> in your own words, pick the exact syllabus topic, add 8–20 <span className="text-ink-2">anchors</span> — one idea each, separated by <span className="text-ink-2">,</span> or <span className="text-ink-2">·</span>.
+          After every class: write the <span className="text-ink-2">quick organiser</span> in your own words, pick the exact syllabus topic, add 8–14 <span className="text-ink-2">anchors</span> — keep one only if it pulls back a whole paragraph. Separate with <span className="text-ink-2">,</span> or <span className="text-ink-2">·</span>.
           Day by day this becomes your pre-exam revision book — and each topic joins the 1→7→21→60→120-day ladder automatically.
         </p>
         <button onClick={() => { if (showForm) { resetForm(); } setShowForm(!showForm); }}
@@ -216,7 +219,11 @@ export function ClassSummaries() {
             </div>
             <div>
               <label className="mb-1 block text-[10.5px] uppercase tracking-widest text-ink-3">Syllabus topic</label>
-              <select value={topicId} onChange={(e) => setTopicId(e.target.value)}
+              <select value={topicId} onChange={(e) => {
+                  const v = e.target.value;
+                  setTopicId(v);
+                  setCustomTopic(paper?.topics.find((t) => t.id === v)?.title ?? "");
+                }}
                 className="w-full rounded-lg border border-line bg-surface-2 px-2.5 py-2 text-[12.5px] text-ink outline-none">
                 <option value="" disabled>Pick the topic…</option>
                 {paper?.topics.map((t) => <option key={t.id} value={t.id}>{t.section ? `${t.section} — ` : ""}{t.title}</option>)}
@@ -224,9 +231,15 @@ export function ClassSummaries() {
               </select>
             </div>
           </div>
-          {topicId === CUSTOM && (
-            <input value={customTopic} onChange={(e) => setCustomTopic(e.target.value)} placeholder="Type the topic name…"
-              className="w-full rounded-lg border border-line bg-surface-2 px-2.5 py-2 text-[12.5px] text-ink outline-none focus:border-accent/50" />
+          {topicId && (
+            <div>
+              <label className="mb-1 block text-[10.5px] uppercase tracking-widest text-ink-3">
+                Card title — name the thinker / sub-topic this class covered
+              </label>
+              <input value={customTopic} onChange={(e) => setCustomTopic(e.target.value)}
+                placeholder="Western Political Thought — Aristotle: Constitution & Revolution"
+                className="w-full rounded-lg border border-line bg-surface-2 px-2.5 py-2 text-[12.5px] text-ink outline-none focus:border-accent/50" />
+            </div>
           )}
           <div>
             <label className="mb-1 block text-[10.5px] uppercase tracking-widest text-ink-3">Quick organiser — your own words (read twice, close it)</label>
