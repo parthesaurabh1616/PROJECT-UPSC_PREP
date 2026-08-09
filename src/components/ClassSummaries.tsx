@@ -73,6 +73,9 @@ export function ClassSummaries() {
   const [savedMsg, setSavedMsg] = useState("");
   const [q, setQ] = useState("");
   const [view, setView] = useState<"subject" | "day">("subject");
+  /* null = every subject. Picking one shows that shelf alone — PSIR and
+     Geography stacked on a single page made the archive unreadable. */
+  const [subject, setSubject] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
@@ -155,14 +158,27 @@ export function ClassSummaries() {
     return next;
   });
 
+  /* Counts come from the unfiltered rows so the shelf tabs never move
+     while you type in the search box. */
+  const shelves = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of rows ?? []) {
+      const b = bucketOf(s.subject);
+      m.set(b, (m.get(b) ?? 0) + 1);
+    }
+    return BUCKET_ORDER.filter((b) => m.has(b)).map((b) => [b, m.get(b)!] as const);
+  }, [rows]);
+
   const filtered = useMemo(() => {
     if (!rows) return [];
     const needle = q.trim().toLowerCase();
-    return needle
-      ? rows.filter((s) => s.topic.toLowerCase().includes(needle) || s.body.toLowerCase().includes(needle)
-          || s.subject.toLowerCase().includes(needle) || s.anchors.some((a) => a.toLowerCase().includes(needle)))
-      : rows;
-  }, [rows, q]);
+    return rows.filter((s) => {
+      if (subject && bucketOf(s.subject) !== subject) return false;
+      if (!needle) return true;
+      return s.topic.toLowerCase().includes(needle) || s.body.toLowerCase().includes(needle)
+        || s.subject.toLowerCase().includes(needle) || s.anchors.some((a) => a.toLowerCase().includes(needle));
+    });
+  }, [rows, q, subject]);
 
   const byDay = useMemo(() => {
     const m = new Map<string, Summary[]>();
@@ -194,7 +210,15 @@ export function ClassSummaries() {
           After every class: write the <span className="text-ink-2">quick organiser</span> in your own words, pick the exact syllabus topic, add 8–14 <span className="text-ink-2">anchors</span> — keep one only if it pulls back a whole paragraph. Separate with <span className="text-ink-2">,</span> or <span className="text-ink-2">·</span>.
           Day by day this becomes your pre-exam revision book — and each topic joins the 1→7→21→60→120-day ladder automatically.
         </p>
-        <button onClick={() => { if (showForm) { resetForm(); } setShowForm(!showForm); }}
+        <button onClick={() => {
+            if (showForm) { resetForm(); }
+            else if (subject) {
+              // Composing from a shelf? Start on that shelf's paper.
+              const pi = PAPERS.findIndex((p) => p.bucket === subject);
+              if (pi >= 0) { setPaperIdx(pi); setTopicId(""); setCustomTopic(""); }
+            }
+            setShowForm(!showForm);
+          }}
           className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-[12px] text-accent hover:bg-accent/20">
           {showForm ? <X size={13} /> : <NotebookPen size={13} />} {showForm ? "Close" : "Write today's summary"}
         </button>
@@ -273,6 +297,22 @@ export function ClassSummaries() {
         </div>
       )}
 
+      {/* Subject shelves — one subject at a time, so PSIR and Geography
+          stop competing for the same scroll. */}
+      {shelves.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([[null, "All", rows.length] as const, ...shelves.map(([b, n]) => [b, b === "PSIR" ? "PSIR — Optional" : b, n] as const)])
+            .map(([value, label, count]) => (
+              <button key={label} onClick={() => setSubject(value)}
+                className={cn("flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.12em] transition-colors",
+                  subject === value ? "border-accent/40 bg-accent/15 text-accent" : "border-line text-ink-3 hover:border-line hover:text-ink")}>
+                {label}
+                <span className={cn("rounded px-1 py-px text-[9px]", subject === value ? "bg-accent/20" : "bg-surface-2 text-ink-3")}>{count}</span>
+              </button>
+            ))}
+        </div>
+      )}
+
       {/* Search + view toggle */}
       {rows.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -280,7 +320,9 @@ export function ClassSummaries() {
             <Search size={13} className="shrink-0 text-ink-3" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search topic, content, anchors…"
               className="w-full bg-transparent text-[13px] text-ink placeholder:text-ink-3 focus:outline-none" />
-            <span className="shrink-0 font-mono text-[10px] text-ink-3">{rows.length} summaries</span>
+            <span className="shrink-0 font-mono text-[10px] text-ink-3">
+              {filtered.length}{filtered.length !== rows.length ? ` / ${rows.length}` : ""} summaries
+            </span>
           </div>
           <div className="flex overflow-hidden rounded-lg border border-line">
             {([["subject", "By subject"], ["day", "By day"]] as const).map(([v, label]) => (
@@ -304,14 +346,27 @@ export function ClassSummaries() {
         </Card>
       )}
 
+      {rows.length > 0 && filtered.length === 0 && (
+        <Card className="py-10 text-center">
+          <p className="text-[13px] text-ink-2">Nothing here yet</p>
+          <p className="mx-auto mt-1 max-w-[420px] text-[12px] text-ink-3">
+            No summary matches {subject ? <span className="text-ink-2">{subject}</span> : "this search"}
+            {q.trim() && subject ? " and that search" : ""}.
+          </p>
+        </Card>
+      )}
+
       {/* Archive — grouped by subject (PSIR · GS-I…GS-IV · Essay · Prelims) or by class day */}
       {view === "subject"
         ? bySubject.map(([bucket, list]) => (
             <div key={bucket}>
-              <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
-                <FolderOpen size={11} className="text-accent" /> {bucket === "PSIR" ? "PSIR — Optional" : bucket}
-                <span className="normal-case tracking-normal">· {list.length} summar{list.length === 1 ? "y" : "ies"}</span>
-              </p>
+              {/* The shelf tab already names the subject — don't repeat it. */}
+              {!subject && (
+                <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
+                  <FolderOpen size={11} className="text-accent" /> {bucket === "PSIR" ? "PSIR — Optional" : bucket}
+                  <span className="normal-case tracking-normal">· {list.length} summar{list.length === 1 ? "y" : "ies"}</span>
+                </p>
+              )}
               <div className="space-y-2">
                 {list.map((s) => <SummaryCard key={s.id} s={s} showDay expanded={open.has(s.id)} onToggle={toggle} onEdit={startEdit} onRemove={remove} />)}
               </div>
