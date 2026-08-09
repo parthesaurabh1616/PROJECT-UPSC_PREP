@@ -117,8 +117,9 @@ export function scoreTopic(input: ScoreInput): VisualizationScore {
   }
 
   const w = subject === "GEOGRAPHY" ? W_GEO : W_PSIR;
+  const dims = b as unknown as Record<string, number | undefined>;
   const total = Math.round(
-    Object.entries(w).reduce((sum, [k, weight]) => sum + ((b as Record<string, number | undefined>)[k] ?? 0) * weight, 0) * 10
+    Object.entries(w).reduce((sum, [k, weight]) => sum + (dims[k] ?? 0) * weight, 0) * 10
   );
 
   const archetype = pickArchetype(subject, topic, text, b);

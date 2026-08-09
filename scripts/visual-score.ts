@@ -14,8 +14,8 @@ const subjectOf = (s: string): Subject => (s.includes("PSIR") ? "PSIR" : "GEOGRA
   const rows = await prisma.classSummary.findMany({ orderBy: { day: "asc" } });
   const scored = rows.map((r) => ({
     day: r.day.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-    subject: subjectOf(r.subject),
     topic: r.topic,
+    // scoreTopic already returns `subject` — don't set it twice.
     ...scoreTopic({ subject: subjectOf(r.subject), topic: r.topic, body: r.body, anchors: r.anchors }),
   }));
 
