@@ -34,3 +34,6 @@ next-env.d.ts
 
 # Local DB dumps taken before data edits
 .backups/
+
+# Visual engine review artefacts (regenerable)
+storyboards/
