@@ -17,6 +17,8 @@ interface Scene {
 }
 interface Board {
   key: string;
+  video: string | null;
+  videoBytes: number;
   score: { total: number; tier: string; priority: string; archetype: string; reasons: string[] };
   storyboard: {
     topic: string; subject: string; archetype: string; learningObjective: string;
@@ -82,6 +84,34 @@ export default function VisualPage() {
           </button>
         ))}
       </div>
+
+      {/* The video itself, when one has actually been rendered. */}
+      {b.video ? (
+        <Card className="overflow-hidden p-0">
+          <video
+            key={b.video}
+            src={b.video}
+            controls
+            playsInline
+            preload="metadata"
+            className="block w-full bg-black"
+            style={{ aspectRatio: "16 / 9" }}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+              {mmss(sb.totalSeconds)} · {(b.videoBytes / 1048576).toFixed(1)} MB · 1920×1080
+            </span>
+            <a href={b.video} download className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent hover:underline">Download</a>
+          </div>
+        </Card>
+      ) : (
+        <Card className="py-8 text-center">
+          <p className="text-[13px] text-ink-2">Not rendered yet</p>
+          <p className="mt-1 text-[12px] text-ink-3">
+            Run <span className="font-mono text-ink-2">npx tsx scripts/render-video.ts {b.key}</span>
+          </p>
+        </Card>
+      )}
 
       {/* Why this video? (directive §53) */}
       <Card className="p-4">

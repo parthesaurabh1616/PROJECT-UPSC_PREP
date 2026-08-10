@@ -37,3 +37,5 @@ next-env.d.ts
 
 # Visual engine review artefacts (regenerable)
 storyboards/
+public/narration/
+public/videos/
