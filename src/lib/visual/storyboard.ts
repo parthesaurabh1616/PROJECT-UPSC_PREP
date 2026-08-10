@@ -10,6 +10,7 @@
    ════════════════════════════════════════════════════════════════ */
 import { generateJson } from "@/lib/ai";
 import { PRIMITIVES, DURATION, Storyboard, Subject, VisualizationScore } from "./types";
+import { validateTermOrdering, termOrderingRule } from "./pedagogy";
 
 const GEO_PRIMITIVES = `CROSS_SECTION { layers:[{name,colour,depthKm?}], annotations?:[] }
 PLATE_BOUNDARY { kind:"convergent"|"divergent"|"transform", left:{name,type:"oceanic"|"continental"}, right:{...}, outcome?:string }
@@ -36,6 +37,8 @@ QUOTE_REVEAL { quote, attribution }
 MEMORY_ANCHOR { chain:[..] }
 RECALL_FRAME { prompt, blanks:[..] }
 UPSC_PANEL { concept, example, answerUse }`;
+
+const TERM_ORDERING_RULE = termOrderingRule();
 
 function system(subject: Subject): string {
   const language = subject === "GEOGRAPHY"
@@ -76,6 +79,8 @@ NON-NEGOTIABLE RULES
 12. Include one UPSC_PANEL scene near the end: first the simple understanding, then how to express it in exam language.
 13. SELECT, DO NOT COVER. Build ONE mental model. The notes remain available as text.
 14. Set "sourceAnchor" on each scene to the anchor or phrase from the class it came from.
+
+${TERM_ORDERING_RULE}
 
 Also produce a teachingPlan. Write it first, in plain language. If the plan
 does not read clearly, the video will not either.
@@ -182,7 +187,8 @@ export function validateStoryboard(sb: Storyboard, score: VisualizationScore): s
   /* The first line decides whether anyone keeps watching. Greetings and
      "today we will learn" spend the opening seconds saying nothing. */
   const opener = (sb.scenes?.[0]?.narration ?? "").trim().toLowerCase();
-  if (/^(welcome|hello|hi\b|today we|in this video|this video|let's learn|let us learn|we will (discuss|learn|explore))/.test(opener)) {
+  // Punctuation-tolerant: "Today, we explore…" slipped past a stricter version.
+  if (/^(welcome|hello|hi\b|today[\s,]+we|in this video|this video|let'?s (learn|look|explore)|let us (learn|explore)|we (will|are going to) (discuss|learn|explore)|we explore)/.test(opener)) {
     problems.push('scene 1: banned opener — open with a question, puzzle or everyday situation, not a greeting or a syllabus announcement');
   }
 
@@ -193,5 +199,9 @@ export function validateStoryboard(sb: Storyboard, score: VisualizationScore): s
     problems.push(`total ${sb.totalSeconds}s outside ${score.archetype} envelope ${env.min}-${env.max}s`);
   }
   if (!sb.memoryAnchor?.length) problems.push("no memory anchor chain");
+
+  // Terminology must arrive after the mechanism, never before it.
+  for (const p of validateTermOrdering(sb)) problems.push(p.message);
+
   return problems;
 }

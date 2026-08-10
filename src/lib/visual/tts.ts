@@ -128,7 +128,8 @@ export class GeminiTts implements TtsProvider {
   /** Free-tier TTS rate-limits hard. Pace requests instead of firing and retrying. */
   private static minIntervalMs = Number(process.env.TTS_MIN_INTERVAL_MS ?? 7000);
 
-  constructor(private defaultVoice = "Sulafat") {} // warm
+  /** Configurable — never bind the project to one voice (TTS_VOICE). */
+  constructor(private defaultVoice = process.env.TTS_VOICE || "Charon") {}
 
   async synthesize(text: string, outFile: string, cfg: VoiceConfig = {}): Promise<TtsResult> {
     const key = process.env.GOOGLE_API_KEY;
