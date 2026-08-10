@@ -14,6 +14,29 @@ function getGenAI() {
   return _genAI;
 }
 
+/**
+ * Escape raw control characters that appear INSIDE JSON string literals.
+ * Even in JSON mode the model occasionally emits a literal newline inside a
+ * string, which is invalid JSON and kills the parse ("Bad control character
+ * in string literal"). Repairing is far better than losing a whole generation.
+ */
+function repairJsonControlChars(s: string): string {
+  let out = "", inString = false, escaped = false;
+  for (const ch of s) {
+    if (escaped) { out += ch; escaped = false; continue; }
+    if (ch === "\\") { out += ch; escaped = true; continue; }
+    if (ch === '"') { inString = !inString; out += ch; continue; }
+    if (inString) {
+      if (ch === "\n") { out += "\\n"; continue; }
+      if (ch === "\r") { out += "\\r"; continue; }
+      if (ch === "\t") { out += "\\t"; continue; }
+      if (ch.charCodeAt(0) < 0x20) continue; // drop other control chars
+    }
+    out += ch;
+  }
+  return out;
+}
+
 /** Generic JSON-mode generation (COS artifacts etc.). Returns parsed JSON. */
 export async function generateJson<T>(system: string, user: string, maxOutputTokens = 8192): Promise<T> {
   const model = getGenAI().getGenerativeModel({
@@ -23,7 +46,11 @@ export async function generateJson<T>(system: string, user: string, maxOutputTok
   });
   const res = await model.generateContent(user);
   const clean = res.response.text().replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  return JSON.parse(clean) as T;
+  try {
+    return JSON.parse(clean) as T;
+  } catch {
+    return JSON.parse(repairJsonControlChars(clean)) as T;
+  }
 }
 
 function getFileMgr() {

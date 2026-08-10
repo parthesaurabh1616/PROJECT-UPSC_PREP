@@ -1,3 +1,4 @@
+import "./env";
 /* Generate + validate storyboards for the vertical-slice topics.
    Run: npx tsx scripts/visual-storyboard.ts
    Writes storyboards/<slug>.json and prints a readable board for review. */
@@ -48,9 +49,17 @@ const SLICE: { key: string; subject: Subject; match: string[]; title: string }[]
     console.log(`  WHY: ${score.reasons.join(" · ")}`);
     console.log(`${"═".repeat(92)}`);
 
-    const sb = await generateStoryboard({
-      subject: s.subject, topic: s.title, nodeId: cards[0].nodeId, body, anchors, score,
-    });
+    /* Per-board isolation: one board failing must not kill the batch and,
+       worse, leave a stale JSON on disk that later looks like a fresh pass. */
+    let sb;
+    try {
+      sb = await generateStoryboard({
+        subject: s.subject, topic: s.title, nodeId: cards[0].nodeId, body, anchors, score,
+      });
+    } catch (err) {
+      console.error(`  ✗ GENERATION FAILED — ${(err as Error).message.slice(0, 300)}`);
+      continue;
+    }
     const problems = validateStoryboard(sb, score);
 
     console.log(`\n  OBJECTIVE: ${sb.learningObjective}`);

@@ -56,19 +56,34 @@ ${SHARED_PRIMITIVES}
 
 Allowed primitive names (exact): ${PRIMITIVES.join(", ")}
 
+THE STANDARD: "explain it to a donkey and a child".
+The CONTENT stays UPSC-level. The EXPLANATION is absolute-beginner level.
+Simplify the LANGUAGE, never the mechanism. Removing a step to make it
+shorter produces a wrong concept, which is worse than a hard one.
+
 NON-NEGOTIABLE RULES
 1. GROUND EVERYTHING in the supplied class summary. Never introduce a fact, date, figure, name or example that is not present in it. If a scene needs something absent, put a note in "flags" instead of inventing.
-2. Narration explains what the visual MEANS. It never describes the picture. Bad: "Here we see two plates moving." Good: "As the two plates converge the denser oceanic plate is forced under — that is what builds a trench."
-3. onScreenText is keywords/labels ONLY. Never a sentence, never a paragraph. Max 6 words per item, max 4 items per scene.
-4. Every scene must carry a real pedagogical job in "beat". If a scene's only job is decoration, delete it.
-5. Ordering must build understanding: context → mechanism → consequence → comparison/criticism → memory.
-6. Second-to-last scene is RECALL_FRAME (SILENT — narration must be ""), last scene is MEMORY_ANCHOR (also silent).
-7. SELECT, DO NOT COVER. You are building ONE mental model, not summarising the whole class. A class has far more material than a revision video should carry; choose the spine and drop the rest. The notes remain available as text.
-8. Narration pace is 2.4 words per second. HARD BUDGET per scene: words ≤ seconds × 2.4. A 10-second scene gets at most 24 words of narration. Write to that budget; do not overrun it.
-9. Set "sourceAnchor" on each scene to the anchor or phrase from the class it came from.
+2. NEVER OPEN WITH JARGON. Scene 1 is a HOOK: a question, puzzle or everyday situation that makes the viewer curious. No "Welcome", no "Today we will learn", no "According to X".
+3. SHOW → SAY → NAME → CONNECT. Show the thing happening; say in plain words what is happening; only THEN give the academic term; then say why it matters. The viewer must understand the idea BEFORE receiving its label.
+4. ONE IDEA PER SCENE. One new concept, one new term, one visual state. If a scene carries two ideas, split it into two scenes.
+5. NO HIDDEN STEPS. If understanding runs A → B → C, you must show B. Never state a cause and effect with the mechanism missing.
+6. SPOKEN ENGLISH, NOT WRITTEN ENGLISH. Sentences of 8–18 words. Split long clauses. Use "Imagine…", "Why? Because…", "So what does that mean?", "Here is the key point." Contractions are fine. Read it aloud in your head — if you would not say it, rewrite it.
+7. Narration explains what the visual MEANS; it never describes the picture. Bad: "Here we see two plates moving." Good: "One plate is heavier. So it bends down and slides underneath."
+8. onScreenText is keywords/labels ONLY. Max 6 words per item, max 4 items per scene.
+9. PACING: each scene carries at most 2 sentences and AT MOST 40 words. Short scenes are correct — a new visual state every 6–14 seconds is the target. Long narration must be SPLIT ACROSS SCENES, never parked on one static picture.
+10. Include a short MINI-RECAP scene after every 3–4 new concepts ("So far: … , … , and … ").
+11. Second-to-last scene is RECALL_FRAME (SILENT — narration ""), last scene is MEMORY_ANCHOR (also silent).
+12. Include one UPSC_PANEL scene near the end: first the simple understanding, then how to express it in exam language.
+13. SELECT, DO NOT COVER. Build ONE mental model. The notes remain available as text.
+14. Set "sourceAnchor" on each scene to the anchor or phrase from the class it came from.
+
+Also produce a teachingPlan. Write it first, in plain language. If the plan
+does not read clearly, the video will not either.
 
 Return ONLY JSON matching this shape:
-{"version":1,"subject":"...","topic":"...","nodeId":null,"archetype":"...","learningObjective":"...","totalSeconds":0,
+{"version":2,"subject":"...","topic":"...","nodeId":null,"archetype":"...","learningObjective":"...",
+ "teachingPlan":{"learningObjective":"...","priorKnowledgeRequired":["..."],"coreProblem":"...","coreConcept":"...","simpleExplanation":"...","technicalDefinition":"...","causalChain":["..."],"visualMetaphor":"...","memoryAnchor":"...","upscBridge":"..."},
+ "totalSeconds":0,
  "scenes":[{"n":1,"seconds":8,"beat":"...","visual":{"primitive":"...","props":{},"motion":"..."},"narration":"...","onScreenText":["..."],"emphasis":["..."],"sourceAnchor":"..."}],
  "memoryAnchor":["..."],"recallFrame":{"prompt":"...","answer":"..."},
  "upscApplication":{"concept":"...","example":"...","answerUse":"...","pyqHint":"..."},"flags":["..."]}`;
@@ -106,9 +121,11 @@ export function fitTimings(sb: Storyboard): Storyboard {
 
 export async function generateStoryboard(input: StoryboardInput): Promise<Storyboard> {
   const env = DURATION[input.score.archetype];
-  /* One scene per ~18s of runtime. Without a budget the model tries to cover
-     the whole class and produces a 20-scene board that cannot fit any envelope. */
-  const sceneBudget = Math.min(14, Math.max(8, Math.round(env.max / 18)));
+  /* MANY SHORT SCENES, not few long ones. One scene per ~10s is what keeps a
+     visual state from sitting static while narration runs on — the previous
+     boards parked one comparison panel on screen for 31 seconds. Splitting is
+     also what enforces "one idea per scene". */
+  const sceneBudget = Math.min(34, Math.max(14, Math.round(env.max / 10)));
   const user = `SUBJECT: ${input.subject}
 TOPIC: ${input.topic}
 ARCHETYPE: ${input.score.archetype}
@@ -124,7 +141,9 @@ CLASS SUMMARY (the ONLY permitted source of facts):
 ${input.body}
 """`;
 
-  const sb = await generateJson<Storyboard>(system(input.subject), user, 16384);
+  /* 30-odd short scenes plus a teaching plan is a large JSON document; at
+     16k the response was silently truncated mid-string. */
+  const sb = await generateJson<Storyboard>(system(input.subject), user, 65536);
   sb.subject = input.subject;
   sb.topic = input.topic;
   sb.nodeId = input.nodeId;
@@ -150,10 +169,22 @@ export function validateStoryboard(sb: Storyboard, score: VisualizationScore): s
     const words = (s.narration ?? "").trim().split(/\s+/).filter(Boolean).length;
     const pace = words / Math.max(1, s.seconds);
     if (!silent && pace > 3.0) problems.push(`scene ${s.n}: narration too fast (${pace.toFixed(1)} w/s over ${s.seconds}s)`);
+    // Cognitive load: a scene carrying more than ~40 words is two scenes.
+    if (!silent && words > 46) problems.push(`scene ${s.n}: ${words} words — split it, one idea per scene`);
+    // Written-English detector: very long sentences do not survive being spoken.
+    const longest = Math.max(0, ...(s.narration ?? "").split(/[.?!]/).map((x) => x.trim().split(/\s+/).filter(Boolean).length));
+    if (!silent && longest > 26) problems.push(`scene ${s.n}: a ${longest}-word sentence — split it into spoken-length sentences`);
     (s.onScreenText ?? []).forEach((t) => {
       if (t.split(/\s+/).length > 6) problems.push(`scene ${s.n}: on-screen text is a sentence — "${t.slice(0, 40)}…"`);
     });
   });
+
+  /* The first line decides whether anyone keeps watching. Greetings and
+     "today we will learn" spend the opening seconds saying nothing. */
+  const opener = (sb.scenes?.[0]?.narration ?? "").trim().toLowerCase();
+  if (/^(welcome|hello|hi\b|today we|in this video|this video|let's learn|let us learn|we will (discuss|learn|explore))/.test(opener)) {
+    problems.push('scene 1: banned opener — open with a question, puzzle or everyday situation, not a greeting or a syllabus announcement');
+  }
 
   const kinds = sb.scenes?.map((s) => s.visual?.primitive) ?? [];
   if (!kinds.includes("MEMORY_ANCHOR")) problems.push("missing MEMORY_ANCHOR scene");

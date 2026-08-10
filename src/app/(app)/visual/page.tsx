@@ -22,6 +22,11 @@ interface Board {
   score: { total: number; tier: string; priority: string; archetype: string; reasons: string[] };
   storyboard: {
     topic: string; subject: string; archetype: string; learningObjective: string;
+    teachingPlan?: {
+      coreProblem: string; simpleExplanation: string; technicalDefinition: string;
+      causalChain: string[]; visualMetaphor: string; upscBridge: string;
+      priorKnowledgeRequired?: string[];
+    };
     totalSeconds: number; scenes: Scene[]; memoryAnchor: string[];
     recallFrame: { prompt: string; answer: string };
     upscApplication: { concept: string; example: string; answerUse: string };
@@ -137,6 +142,35 @@ export default function VisualPage() {
           {sb.flags?.length ? <span className="ml-2 text-warning">⚠ {sb.flags.join(" · ")}</span> : null}
         </div>
       </Card>
+
+      {/* Teaching plan — if this reads as confusing, the video will be too. */}
+      {sb.teachingPlan && (
+        <Card className="space-y-3 p-4">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">Teaching plan</p>
+          {([
+            ["The problem", sb.teachingPlan.coreProblem],
+            ["In plain words", sb.teachingPlan.simpleExplanation],
+            ["Technically", sb.teachingPlan.technicalDefinition],
+            ["Visual metaphor", sb.teachingPlan.visualMetaphor],
+            ["In the exam", sb.teachingPlan.upscBridge],
+          ] as const).filter(([, v]) => v).map(([k, v]) => (
+            <div key={k} className="flex flex-col gap-1 sm:flex-row sm:gap-4">
+              <span className="shrink-0 font-mono text-[10px] uppercase tracking-widest text-ink-3 sm:w-[140px] sm:pt-1">{k}</span>
+              <span className="text-[12.5px] leading-relaxed text-ink-2">{v}</span>
+            </div>
+          ))}
+          {sb.teachingPlan.causalChain?.length ? (
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-line-subtle pt-3">
+              {sb.teachingPlan.causalChain.map((c, i) => (
+                <span key={i} className="flex items-center gap-1.5">
+                  <Chip tone="accent">{c}</Chip>
+                  {i < sb.teachingPlan!.causalChain.length - 1 && <span className="text-ink-3">→</span>}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </Card>
+      )}
 
       {/* Scenes */}
       <div className="space-y-2">

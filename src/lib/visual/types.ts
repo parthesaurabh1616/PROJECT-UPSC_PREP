@@ -67,6 +67,22 @@ export interface Scene {
   sourceAnchor?: string;
 }
 
+/** The teaching plan (directive §74). If this reads as confusing, the video
+    will be confusing — it is checked before a single frame is rendered. */
+export interface TeachingPlan {
+  learningObjective: string;
+  priorKnowledgeRequired: string[];
+  coreProblem: string;
+  coreConcept: string;
+  /** The whole idea in plain words, no jargon at all. */
+  simpleExplanation: string;
+  technicalDefinition: string;
+  causalChain: string[];
+  visualMetaphor: string;
+  memoryAnchor: string;
+  upscBridge: string;
+}
+
 export interface Storyboard {
   version: number;
   subject: Subject;
@@ -74,6 +90,7 @@ export interface Storyboard {
   nodeId: string | null;
   archetype: Archetype;
   learningObjective: string;
+  teachingPlan?: TeachingPlan;
   totalSeconds: number;
   scenes: Scene[];
   /** The compact chain the student replays from memory (directive §30). */
@@ -124,15 +141,19 @@ export interface VisualizationScore {
   reasons: string[];
 }
 
-/** Duration envelope per archetype (directive §36) — cognitive load, not a fixed template. */
+/* Duration envelope per archetype — cognitive load, not a fixed template.
+   Widened from the first pass: teaching a mechanism from first principles,
+   with the hidden steps put back in and one idea per scene, simply takes
+   longer than summarising it. Understanding outranks runtime (directive §37),
+   so where the two conflicted the envelope was the thing that was wrong. */
 export const DURATION: Record<Archetype, { min: number; max: number }> = {
-  CONCEPT_ANIMATION: { min: 45, max: 120 },
-  PROCESS_ANIMATION: { min: 60, max: 240 },
+  CONCEPT_ANIMATION: { min: 45, max: 180 },
+  PROCESS_ANIMATION: { min: 60, max: 360 },
   THINKER: { min: 180, max: 420 },
-  THEORY_SIMULATION: { min: 180, max: 360 },
-  COMPARISON: { min: 90, max: 240 },
-  MAP_ANIMATION: { min: 60, max: 180 },
-  TIMELINE: { min: 60, max: 180 },
+  THEORY_SIMULATION: { min: 180, max: 400 },
+  COMPARISON: { min: 90, max: 300 },
+  MAP_ANIMATION: { min: 60, max: 240 },
+  TIMELINE: { min: 60, max: 240 },
   RAPID_REVISION: { min: 60, max: 180 },
   UPSC_APPLICATION: { min: 60, max: 180 },
 };

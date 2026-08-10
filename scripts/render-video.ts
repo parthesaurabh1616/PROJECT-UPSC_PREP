@@ -1,3 +1,4 @@
+import "./env";
 /* ════════════════════════════════════════════════════════════════
    Storyboard → narration → timed composition → MP4.
    Run: npx tsx scripts/render-video.ts [boardKey]
@@ -28,6 +29,7 @@ async function buildTimeline(key: string, board: any) {
   fs.mkdirSync(outDir, { recursive: true });
 
   const timed = [];
+  let degraded = 0;
   for (const s of scenes) {
     const silent = SILENT.has(s.visual.primitive) || !s.narration?.trim();
     let seconds = s.seconds;
@@ -53,7 +55,12 @@ async function buildTimeline(key: string, board: any) {
       audio,
     });
   }
-  return timed;
+  if (degraded) {
+    // A robotic line inside an otherwise natural narration is worse than an
+    // obvious failure — surface it loudly rather than shipping it quietly.
+    console.warn(`  ⚠ ${degraded} scene(s) used the PLACEHOLDER voice. Re-run to fill them from the natural voice.`);
+  }
+  return { timed, degraded };
 }
 
 (async () => {
@@ -66,19 +73,20 @@ async function buildTimeline(key: string, board: any) {
   /* Narration for EVERY board must exist before bundling: bundle() copies
      publicDir into a temp folder, so anything written afterwards is invisible
      to the renderer and 404s mid-render. */
-  const jobs: { key: string; board: any; scenes: any[] }[] = [];
+  const jobs: { key: string; board: any; scenes: any[]; degraded: number }[] = [];
   for (const f of files) {
     const key = f.replace(/\.json$/, "");
     const board = JSON.parse(fs.readFileSync(path.join(BOARDS, f), "utf8"));
     console.log(`\n── ${board.storyboard.topic}\n  synthesising narration…`);
-    jobs.push({ key, board, scenes: await buildTimeline(key, board) });
+    const built = await buildTimeline(key, board);
+    jobs.push({ key, board, scenes: built.timed, degraded: built.degraded });
   }
 
   console.log("\nbundling the Remotion project…");
   const publicDir = path.join(ROOT, "public");
   const serveUrl = await bundle({ entryPoint: path.join(ROOT, "video", "index.ts"), publicDir });
 
-  for (const { key, board, scenes } of jobs) {
+  for (const { key, board, scenes, degraded } of jobs) {
     console.log(`\n── rendering ${board.storyboard.topic}`);
     const inputProps = {
       topic: board.storyboard.topic,
@@ -108,6 +116,7 @@ async function buildTimeline(key: string, board: any) {
     });
 
     const size = fs.statSync(outputLocation).size;
-    console.log(`  ✓ ${path.relative(ROOT, outputLocation)} · ${(size / 1048576).toFixed(1)} MB`);
+    console.log(`  ${degraded ? "⚠" : "✓"} ${path.relative(ROOT, outputLocation)} · ${(size / 1048576).toFixed(1)} MB` +
+      `${degraded ? ` · ${degraded} scene(s) on the placeholder voice` : " · natural voice throughout"}`);
   }
 })().catch((e) => { console.error("\nRENDER FAILED:", e?.message ?? e); process.exit(1); });
