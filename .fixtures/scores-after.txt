@@ -1,0 +1,53 @@
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+  GEOGRAPHY  —  17 completed classes
+════════════════════════════════════════════════════════════════════════════════════════════════
+  SCORE TIER                  PRI  ARCHETYPE           TOPIC
+  86    ANIMATED_EXPLANATION  P1   PROCESS_ANIMATION   Geomorphology — Continental Drift Theory & Sea
+  85    ANIMATED_EXPLANATION  P1   PROCESS_ANIMATION   Geomorphology — Earthquakes & Volcanoes
+  85    ANIMATED_EXPLANATION  P1   PROCESS_ANIMATION   Geomorphology — Plate Tectonics: Boundaries & 
+  84    ANIMATED_EXPLANATION  P1   PROCESS_ANIMATION   Geomorphology — Soil Profile + Climatology — A
+  83    ANIMATED_EXPLANATION  P1   PROCESS_ANIMATION   Geomorphology — Mantle Plumes & Hotspots
+  81    ANIMATED_EXPLANATION  P1   PROCESS_ANIMATION   Physical Geography - Universe and Solar System
+  76    ANIMATED_EXPLANATION  P1   PROCESS_ANIMATION   Geomorphology — Weathering, Erosion, Rocks & t
+  74    MICRO_ANIMATION       P2   PROCESS_ANIMATION   Physical Geography - Universe and Solar System
+  72    MICRO_ANIMATION       P2   PROCESS_ANIMATION   Climatology — Walker Circulation: El Niño, La 
+  69    MICRO_ANIMATION       P2   PROCESS_ANIMATION   Climatology — Ferrel & Polar Cells, Jet Stream
+  65    MICRO_ANIMATION       P2   PROCESS_ANIMATION   Climatology — Fronts, Clouds, Precipitation & 
+  63    MICRO_ANIMATION       P2   PROCESS_ANIMATION   Climatology — Heat Budget + Oceanography — Oce
+  62    MICRO_ANIMATION       P2   PROCESS_ANIMATION   Oceanography — Ocean Relief, Choke Points & UN
+  60    MICRO_ANIMATION       P2   PROCESS_ANIMATION   Physical Geography — Universe: Big Bang, CMB &
+  55    STATIC_VISUAL         P3   CONCEPT_ANIMATION   Climatology — Albedo Applications, PGF, Coriol
+  52    STATIC_VISUAL         P3   CONCEPT_ANIMATION   Geomorphology — Interior of the Earth
+  40    STATIC_VISUAL         P3   CONCEPT_ANIMATION   Climatology — Layers & Composition of the Atmo
+  → P0: 0   P1: 7   P2+: 10
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+  PSIR  —  20 completed classes
+════════════════════════════════════════════════════════════════════════════════════════════════
+  SCORE TIER                  PRI  ARCHETYPE           TOPIC
+  77    ANIMATED_EXPLANATION  P1   THINKER             Western Political Thought — Plato: Communism &
+  75    ANIMATED_EXPLANATION  P1   THINKER             Western Political Thought — Aristotle: State, 
+  73    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Hobbes: sovereignt
+  70    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Hobbes: human natu
+  68    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Machiavelli: reali
+  67    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Aristotle: Constit
+  66    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Sophists & Socrate
+  64    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Locke: natural rig
+  61    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Bentham & J.S. Mil
+  60    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Plato: life, works
+  60    MICRO_ANIMATION       P2   THINKER             Western Political Thought — Machiavelli: state
+  57    STATIC_VISUAL         P3   THEORY_SIMULATION   Indian Foreign Policy — Afghanistan
+  53    STATIC_VISUAL         P3   THINKER             Western Political Thought — Plato: Ideas, Just
+  51    STATIC_VISUAL         P3   MAP_ANIMATION       Indian Foreign Policy — Iran
+  48    STATIC_VISUAL         P3   MAP_ANIMATION       Indian Foreign Policy — Afghanistan close & Ce
+  48    STATIC_VISUAL         P3   THINKER             Western Political Thought — J.S. Mill: democra
+  43    STATIC_VISUAL         P3   THINKER             Western Political Thought — Rousseau: general 
+  42    STATIC_VISUAL         P3   TIMELINE            India and the Nuclear Question — doctrine & di
+  41    STATIC_VISUAL         P3   TIMELINE            Indian Foreign Policy — West Asia
+  21    TEXT_ONLY             P3   CONCEPT_ANIMATION   India and the UN System — UNSC reform
+  → P0: 0   P1: 2   P2+: 18
+
+  Highest overall: Geomorphology — Continental Drift Theory & Sea Floor Spreading (86)
+  Why: causal structure: 10/10 · memory benefit: 9/10 · upsc relevance: 9/10 · spatial complexity: 9/10 · process complexity: 9/10
+

@@ -85,7 +85,8 @@ async function buildTimeline(key: string, board: any) {
 
 (async () => {
   const only = process.argv[2];
-  const files = fs.readdirSync(BOARDS).filter((f) => f.endsWith(".json") && (!only || f.startsWith(only)));
+  const files = fs.readdirSync(BOARDS)// .lock.json sidecars sit beside boards — they are not boards.
+    .filter((f) => f.endsWith(".json") && !f.endsWith(".lock.json") && (!only || f.startsWith(only)));
   if (!files.length) { console.error("no storyboards found"); process.exit(1); }
 
   fs.mkdirSync(VIDEOS, { recursive: true });

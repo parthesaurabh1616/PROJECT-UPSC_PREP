@@ -8,7 +8,9 @@
    a structure that mirrors the knowledge rather than decorating it.
    ════════════════════════════════════════════════════════════════ */
 
-export type Subject = "PSIR" | "GEOGRAPHY";
+/* Subject is whatever the registry knows. Adding History is a registry entry,
+   not a change to this union and the six files that switch on it. */
+export type Subject = string;
 
 /** Reusable video shapes (directive §26). */
 export const ARCHETYPES = [

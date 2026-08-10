@@ -14,7 +14,8 @@ const SILENT = new Set(["RECALL_FRAME", "MEMORY_ANCHOR"]);
   const only = process.argv[2];
   const mode = (process.env.TTS_MODE as TtsMode) ?? "free";
   const dir = path.join(process.cwd(), "storyboards");
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json") && (!only || f.startsWith(only)));
+  const files = fs.readdirSync(dir)// .lock.json sidecars sit beside boards — they are not boards.
+    .filter((f) => f.endsWith(".json") && !f.endsWith(".lock.json") && (!only || f.startsWith(only)));
 
   console.log(`\nPROVIDERS                                    available  free allowance left`);
   console.log("─".repeat(78));

@@ -11,22 +11,7 @@
 import { generateJson } from "@/lib/ai";
 import { PRIMITIVES, DURATION, Storyboard, Subject, VisualizationScore } from "./types";
 import { validateTermOrdering, termOrderingRule } from "./pedagogy";
-
-const GEO_PRIMITIVES = `CROSS_SECTION { layers:[{name,colour,depthKm?}], annotations?:[] }
-PLATE_BOUNDARY { kind:"convergent"|"divergent"|"transform", left:{name,type:"oceanic"|"continental"}, right:{...}, outcome?:string }
-EARTH_GLOBE { focus?:{lat,lon}, overlay?:"plates"|"currents"|"pressure"|"none", markers?:[{label,lat,lon}] }
-ATMOSPHERIC_CELL { cells:["hadley"|"ferrel"|"polar"], latitudes:[..], flow:"rising"|"sinking"|"both" }
-OCEAN_CURRENT { currents:[{name,temp:"warm"|"cold",path:[..]}] }
-PRESSURE_SYSTEM { centres:[{kind:"high"|"low",label,lat,lon}] }
-WIND_VECTOR { vectors:[{from,to,label?,deflect?:"right"|"left"}] }
-PROFILE_DIAGRAM { stops:[{name,valueLabel?}], axis?:string }
-PHYSICAL_MAP { region:string, features:[{kind,label}] }`;
-
-const PSIR_PRIMITIVES = `CONCEPT_GRAPH { nodes:[{id,label,kind?}], edges:[{from,to,label?}] }
-THINKER_WORLD { thinker:string, context:string, problem:string, humanNature:string, stateOfNature?:string, solution:string, criticism:string }
-GEOPOLITICAL_MAP { actors:[{name,role:"state"|"alliance"|"threat"}], flows?:[{from,to,kind:"trade"|"threat"|"alliance"}] }
-INSTITUTION_DIAGRAM { levels:[{name,powers?:[]}], relations?:[{from,to,label}] }
-STATE_TRANSITION { before:{label,traits:[]}, trigger:string, after:{label,traits:[]} }`;
+import { getSubject } from "./subjects";
 
 const SHARED_PRIMITIVES = `TITLE { title, subtitle? }
 CAUSAL_CHAIN { steps:[{label,note?}] }
@@ -41,13 +26,10 @@ UPSC_PANEL { concept, example, answerUse }`;
 const TERM_ORDERING_RULE = termOrderingRule();
 
 function system(subject: Subject): string {
-  const language = subject === "GEOGRAPHY"
-    ? `GEOGRAPHY VISUAL LANGUAGE — Earth, space, movement, process, interaction.
-Make the invisible visible: anything underground, inside the atmosphere or ocean, or over geological time MUST be animated rather than described.
-Subject primitives:\n${GEO_PRIMITIVES}`
-    : `PSIR VISUAL LANGUAGE — ideas, thinkers, power, states, institutions, networks.
-Show STRUCTURE: causal chains, transformations, comparisons, power relations. Never a talking-head list of points.
-Subject primitives:\n${PSIR_PRIMITIVES}`;
+  // Visual language and primitive docs come from the subject profile, so a new
+  // subject is a registry entry rather than another branch here.
+  const profile = getSubject(subject);
+  const language = `${profile.visualLanguage}\nSubject primitives:\n${profile.primitiveDocs}`;
 
   return `You are the Visual Storytelling Director of a UPSC visual revision engine.
 You convert one completed class into a storyboard that produces a MENTAL MODEL, not slides.

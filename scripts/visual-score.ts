@@ -4,11 +4,11 @@
    that a paragraph already teaches perfectly well. */
 import { PrismaClient } from "@prisma/client";
 import { scoreTopic } from "../src/lib/visual/scoring";
-import type { Subject } from "../src/lib/visual/types";
+import { resolveSubject } from "../src/lib/visual/subjects";
 
 const prisma = new PrismaClient();
 
-const subjectOf = (s: string): Subject => (s.includes("PSIR") ? "PSIR" : "GEOGRAPHY");
+const subjectOf = (s: string): string => resolveSubject(s).id;
 
 (async () => {
   const rows = await prisma.classSummary.findMany({ orderBy: { day: "asc" } });
@@ -19,7 +19,7 @@ const subjectOf = (s: string): Subject => (s.includes("PSIR") ? "PSIR" : "GEOGRA
     ...scoreTopic({ subject: subjectOf(r.subject), topic: r.topic, body: r.body, anchors: r.anchors }),
   }));
 
-  for (const subject of ["GEOGRAPHY", "PSIR"] as const) {
+  for (const subject of ["GEOGRAPHY", "PSIR"]) {
     const list = scored.filter((s) => s.subject === subject).sort((a, b) => b.total - a.total);
     console.log(`\n${"═".repeat(96)}\n  ${subject}  —  ${list.length} completed classes\n${"═".repeat(96)}`);
     console.log(`  ${"SCORE".padEnd(6)}${"TIER".padEnd(22)}${"PRI".padEnd(5)}${"ARCHETYPE".padEnd(20)}TOPIC`);

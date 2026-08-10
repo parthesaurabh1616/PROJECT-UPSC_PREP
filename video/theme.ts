@@ -3,7 +3,9 @@
    GEOGRAPHY = Earth, space, movement, process — cool cyan on deep navy.
    Clarity outranks cinematics: restrained palette, strong hierarchy. */
 
-export type SubjectKey = "PSIR" | "GEOGRAPHY";
+import { getSubject } from "../src/lib/visual/subjects";
+
+export type SubjectKey = string;
 
 export interface Theme {
   bg: string; bgSoft: string; grid: string;
@@ -12,20 +14,11 @@ export interface Theme {
   line: string;
 }
 
-export const THEMES: Record<SubjectKey, Theme> = {
-  GEOGRAPHY: {
-    bg: "#05080F", bgSoft: "#0B1220", grid: "rgba(120,190,255,0.055)",
-    ink: "#EAF2FF", ink2: "#A9BDD6", ink3: "#61748C",
-    accent: "#4CC9F0", accent2: "#FFB703", warn: "#FF6B6B", good: "#4ADE80",
-    line: "rgba(120,190,255,0.16)",
-  },
-  PSIR: {
-    bg: "#08070A", bgSoft: "#12101A", grid: "rgba(255,190,120,0.05)",
-    ink: "#F5EFE6", ink2: "#C9BCA8", ink3: "#7C6F60",
-    accent: "#F0A500", accent2: "#8AB4F8", warn: "#FF6B6B", good: "#4ADE80",
-    line: "rgba(255,190,120,0.16)",
-  },
-};
+/* Palettes live in the subject registry so a new subject brings its own
+   identity with it, rather than needing an edit here. */
+export const THEMES: Record<string, Theme> = new Proxy({} as Record<string, Theme>, {
+  get: (_t, key: string) => getSubject(key).theme,
+});
 
 export const FONT = {
   display: "'Rajdhani', 'Segoe UI', system-ui, sans-serif",

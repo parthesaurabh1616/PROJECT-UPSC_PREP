@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, staticFile, useCurrentFrame, interpolate } from "remotion";
 import { THEMES, FONT, gridBackground, FPS, SubjectKey } from "./theme";
+import { getSubject } from "../src/lib/visual/subjects";
 import { SceneBody } from "./Scene";
 
 export interface TimedScene {
@@ -28,7 +29,7 @@ const Chrome: React.FC<{ topic: string; subject: SubjectKey; progress: number }>
     <>
       <div style={{ position: "absolute", top: 40, left: 96, right: 96, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontFamily: FONT.mono, fontSize: 19, letterSpacing: "0.22em", textTransform: "uppercase", color: t.accent }}>
-          {subject === "PSIR" ? "PSIR · Optional" : "Geography · GS-I"}
+          {getSubject(subject).chromeLabel}
         </span>
         <span style={{ fontFamily: FONT.mono, fontSize: 19, letterSpacing: "0.14em", color: t.ink3 }}>{topic}</span>
       </div>

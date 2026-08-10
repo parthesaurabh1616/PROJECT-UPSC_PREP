@@ -11,6 +11,7 @@
 import {
   Subject, Archetype, ScoreBreakdown, VisualizationScore, tierOf, priorityOf,
 } from "./types";
+import { getSubject } from "./subjects";
 
 /** Diminishing-returns normaliser: many hits saturate rather than run away. */
 function sat(count: number, saturation: number): number {
@@ -55,31 +56,16 @@ export interface ScoreInput {
   anchors: string[];
 }
 
-function pickArchetype(s: Subject, topic: string, text: string, b: ScoreBreakdown): Archetype {
-  if (s === "PSIR") {
-    if (hits(topic, LEX.thinker) > 0) return "THINKER";
-    if ((b.geopoliticalInteraction ?? 0) >= 7) return "MAP_ANIMATION";
-    if ((b.comparisonPotential ?? 0) >= 8) return "COMPARISON";
-    if ((b.theoreticalComplexity ?? 0) >= 7) return "THEORY_SIMULATION";
-    if (hits(text, LEX.timeline) >= 10) return "TIMELINE";
-    return "CONCEPT_ANIMATION";
-  }
-  if ((b.processComplexity ?? 0) >= 6 || (b.movementBenefit ?? 0) >= 7) return "PROCESS_ANIMATION";
-  if (hits(text, LEX.map) >= 14) return "MAP_ANIMATION";
-  if ((b.temporalScale ?? 0) >= 7) return "TIMELINE";
-  return "CONCEPT_ANIMATION";
+/** The subject profile decides the shape; the engine only supplies signals. */
+function pickArchetype(subject: Subject, topic: string, text: string, dims: Record<string, number>): Archetype {
+  const chosen = getSubject(subject).archetypeFor({
+    topic, dims,
+    hits: (re) => hits(text, re),
+    topicHits: (re) => hits(topic, re),
+    lex: LEX,
+  });
+  return (chosen as Archetype) ?? "CONCEPT_ANIMATION";
 }
-
-const W_GEO: Record<string, number> = {
-  animationBenefit: 0.15, invisibleProcess: 0.15, processComplexity: 0.13, threeDBenefit: 0.11,
-  spatialComplexity: 0.10, movementBenefit: 0.10, causalStructure: 0.09, upscRelevance: 0.07,
-  memoryBenefit: 0.05, conceptualDifficulty: 0.05,
-};
-const W_PSIR: Record<string, number> = {
-  animationBenefit: 0.14, causalStructure: 0.14, abstraction: 0.11, comparisonPotential: 0.11,
-  theoreticalComplexity: 0.10, geopoliticalInteraction: 0.10, answerWritingUtility: 0.09,
-  upscRelevance: 0.07, conceptualDifficulty: 0.07, institutionalRelations: 0.04, memoryBenefit: 0.03,
-};
 
 export function scoreTopic(input: ScoreInput): VisualizationScore {
   const { subject, topic, body, anchors } = input;
@@ -94,35 +80,37 @@ export function scoreTopic(input: ScoreInput): VisualizationScore {
   const conceptualDifficulty = Math.max(sat(body.length / 900, 3), sat(hits(text, LEX.defined), 4));
   const upscRelevance = Math.max(sat(hits(text, LEX.answer), 2), 6); // every taught class is examinable
 
-  const b: ScoreBreakdown = { causalStructure, memoryBenefit, conceptualDifficulty, upscRelevance, animationBenefit: 0 };
+  /* Every signal is computed; the PROFILE decides which ones count. Computing
+     all of them is cheap and keeps this function free of subject branches —
+     unused dimensions carry no weight and are dropped from the breakdown. */
+  const ALL: Record<string, number> = {
+    causalStructure, memoryBenefit, conceptualDifficulty, upscRelevance,
+    spatialComplexity: sat(hits(text, LEX.spatial), 7),
+    processComplexity: sat(hits(text, LEX.process), 5),
+    temporalScale: sat(hits(text, LEX.temporal), 3),
+    threeDBenefit: sat(hits(text, LEX.threeD), 7),
+    invisibleProcess: sat(hits(text, LEX.invisible), 5),
+    movementBenefit: sat(hits(text, LEX.movement), 6),
+    abstraction: sat(hits(text, LEX.abstraction), 7),
+    comparisonPotential: sat(hits(text, LEX.comparison), 4),
+    theoreticalComplexity: sat(hits(text, LEX.theory), 3),
+    institutionalRelations: sat(hits(text, LEX.institution), 7),
+    answerWritingUtility: sat(hits(text, LEX.answer), 2),
+    geopoliticalInteraction: sat(hits(text, LEX.geopolitics), 5),
+  };
 
-  if (subject === "GEOGRAPHY") {
-    b.spatialComplexity = sat(hits(text, LEX.spatial), 7);
-    b.processComplexity = sat(hits(text, LEX.process), 5);
-    b.temporalScale = sat(hits(text, LEX.temporal), 3);
-    b.threeDBenefit = sat(hits(text, LEX.threeD), 7);
-    b.invisibleProcess = sat(hits(text, LEX.invisible), 5);
-    b.movementBenefit = sat(hits(text, LEX.movement), 6);
-    b.animationBenefit = Math.round(((b.invisibleProcess + b.movementBenefit + b.processComplexity) / 3));
-  } else {
-    b.abstraction = sat(hits(text, LEX.abstraction), 7);
-    b.comparisonPotential = sat(hits(text, LEX.comparison), 4);
-    b.theoreticalComplexity = sat(hits(text, LEX.theory), 3);
-    b.institutionalRelations = sat(hits(text, LEX.institution), 7);
-    b.answerWritingUtility = sat(hits(text, LEX.answer), 2);
-    b.geopoliticalInteraction = sat(hits(text, LEX.geopolitics), 5);
-    b.animationBenefit = Math.round(
-      (causalStructure + (b.comparisonPotential ?? 0) + (b.abstraction ?? 0) + (b.geopoliticalInteraction ?? 0)) / 4
-    );
-  }
+  const profile = getSubject(subject);
+  ALL.animationBenefit = profile.animationBenefit(ALL);
 
-  const w = subject === "GEOGRAPHY" ? W_GEO : W_PSIR;
-  const dims = b as unknown as Record<string, number | undefined>;
+  // Breakdown carries the shared signals plus only this subject's dimensions.
+  const b: ScoreBreakdown = { causalStructure, memoryBenefit, conceptualDifficulty, upscRelevance, animationBenefit: ALL.animationBenefit };
+  for (const d of profile.dimensions) (b as unknown as Record<string, number>)[d] = ALL[d];
+
   const total = Math.round(
-    Object.entries(w).reduce((sum, [k, weight]) => sum + (dims[k] ?? 0) * weight, 0) * 10
+    Object.entries(profile.weights).reduce((sum, [k, weight]) => sum + (ALL[k] ?? 0) * weight, 0) * 10
   );
 
-  const archetype = pickArchetype(subject, topic, text, b);
+  const archetype = pickArchetype(subject, topic, text, ALL);
 
   const reasons = Object.entries(b)
     .filter(([, v]) => (v ?? 0) >= 8)

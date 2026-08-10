@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { scoreTopic } from "../src/lib/visual/scoring";
 import { generateStoryboard, validateStoryboard } from "../src/lib/visual/storyboard";
+import { isLocked, verifyLock } from "../src/lib/visual/lock";
 import type { Subject } from "../src/lib/visual/types";
 
 const prisma = new PrismaClient();
@@ -48,6 +49,17 @@ const SLICE: { key: string; subject: Subject; match: string[]; title: string }[]
     console.log(`  SCORE ${score.total}  ${score.tier}  ${score.priority}  ${score.archetype}`);
     console.log(`  WHY: ${score.reasons.join(" · ")}`);
     console.log(`${"═".repeat(92)}`);
+
+    /* SCRIPT LOCK. An approved board is not regenerated wholesale — that is
+       what burned a day of text quota chasing a single bad scene. Repair the
+       failing scene, or unlock deliberately. */
+    if (isLocked(s.key) && !process.env.FORCE_REGENERATE) {
+      const existing = JSON.parse(fs.readFileSync(path.join(OUT, `${s.key}.json`), "utf8"));
+      const v = verifyLock(s.key, existing.storyboard, (existing.storyboard.scenes ?? []).map((x: any) => x.sourceAnchor ?? "").join("|"));
+      console.log(`  🔒 LOCKED — ${v.summary}. Skipping regeneration.`);
+      console.log(`     repair a scene, or: npx tsx scripts/script-lock.ts unlock ${s.key}`);
+      continue;
+    }
 
     /* Per-board isolation: one board failing must not kill the batch and,
        worse, leave a stale JSON on disk that later looks like a fresh pass. */

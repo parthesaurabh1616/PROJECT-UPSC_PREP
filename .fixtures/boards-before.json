@@ -1,0 +1,18 @@
+{
+  "geo-plate-tectonics": {
+    "score": 85,
+    "tier": "ANIMATED_EXPLANATION",
+    "archetype": "PROCESS_ANIMATION",
+    "problems": [],
+    "scenes": 34,
+    "seconds": 278
+  },
+  "psir-hobbes": {
+    "score": 86,
+    "tier": "ANIMATED_EXPLANATION",
+    "archetype": "THINKER",
+    "problems": [],
+    "scenes": 33,
+    "seconds": 296
+  }
+}
