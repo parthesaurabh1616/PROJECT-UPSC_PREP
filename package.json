@@ -24,7 +24,9 @@
     "tts:benchmark": "tsx scripts/voice-analyse.ts",
     "visual:score": "tsx scripts/visual-score.ts",
     "visual:storyboard": "tsx scripts/visual-storyboard.ts",
-    "visual:render": "tsx scripts/render-video.ts"
+    "visual:render": "tsx scripts/render-video.ts",
+    "media:fixtures": "tsx scripts/media-fixtures.ts",
+    "media:plan": "tsx scripts/media-plan.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

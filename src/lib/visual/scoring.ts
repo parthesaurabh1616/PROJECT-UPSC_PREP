@@ -28,7 +28,9 @@ function hits(text: string, re: RegExp): number {
    The first draft was Earth-centric and thought-centric, which scored
    the Big Bang class at 32 and the chokepoint/IR classes in the 30s —
    all of them strongly visual topics. Blind lexicon, not weak content. */
-const LEX = {
+/* Exported so the media selector reasons from the SAME signals the scorer
+   uses — one lexicon, not two that can drift apart. */
+export const LEX = {
   causal: /→|↓|leads to|causes|results in|gives rise|drives|triggers|produces|because|therefore|hence|so that|thus/,
   spatial: /\b(north|south|east|west|equator|tropic|latitude|longitude|hemisphere|coast|margin|basin|plateau|ridge|trench|belt|zone|region|boundary|orbit|distance)\b/,
   process: /\b(process|forms?|formation|cycle|transition|evolution|stage|phase|mechanism|develops?|sequence)\b/,
