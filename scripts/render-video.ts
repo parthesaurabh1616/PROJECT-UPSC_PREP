@@ -30,6 +30,7 @@ async function buildTimeline(key: string, board: any) {
 
   const timed = [];
   let degraded = 0;
+  const voices = new Set<string>();
   for (const s of scenes) {
     const silent = SILENT.has(s.visual.primitive) || !s.narration?.trim();
     let seconds = s.seconds;
@@ -40,7 +41,14 @@ async function buildTimeline(key: string, board: any) {
       const res = await tts.synthesize(s.narration.trim(), wav);
       seconds = res.seconds + TAIL_SECONDS;
       audio = `narration/${key}/${path.basename(wav)}`;
-      process.stdout.write(`    scene ${String(s.n).padStart(2)} · ${res.seconds.toFixed(1)}s audio\n`);
+      // Track the voice that actually produced this line. A quality claim the
+      // artefact cannot support is worse than an obviously bad voice.
+      const placeholder = (res.provider ?? "").includes("sapi");
+      if (placeholder) degraded++;
+      voices.add(res.provider ?? "unknown");
+      process.stdout.write(
+        `    scene ${String(s.n).padStart(2)} · ${res.seconds.toFixed(1)}s` +
+        `${res.cached ? " (cached)" : ""}${placeholder ? "  ⚠ placeholder" : ""}\n`);
     } else {
       process.stdout.write(`    scene ${String(s.n).padStart(2)} · silent (${seconds}s)\n`);
     }
@@ -60,7 +68,7 @@ async function buildTimeline(key: string, board: any) {
     // obvious failure — surface it loudly rather than shipping it quietly.
     console.warn(`  ⚠ ${degraded} scene(s) used the PLACEHOLDER voice. Re-run to fill them from the natural voice.`);
   }
-  return { timed, degraded };
+  return { timed, degraded, voices: [...voices] };
 }
 
 (async () => {
@@ -73,20 +81,20 @@ async function buildTimeline(key: string, board: any) {
   /* Narration for EVERY board must exist before bundling: bundle() copies
      publicDir into a temp folder, so anything written afterwards is invisible
      to the renderer and 404s mid-render. */
-  const jobs: { key: string; board: any; scenes: any[]; degraded: number }[] = [];
+  const jobs: { key: string; board: any; scenes: any[]; degraded: number; voices: string[] }[] = [];
   for (const f of files) {
     const key = f.replace(/\.json$/, "");
     const board = JSON.parse(fs.readFileSync(path.join(BOARDS, f), "utf8"));
     console.log(`\n── ${board.storyboard.topic}\n  synthesising narration…`);
     const built = await buildTimeline(key, board);
-    jobs.push({ key, board, scenes: built.timed, degraded: built.degraded });
+    jobs.push({ key, board, scenes: built.timed, degraded: built.degraded, voices: built.voices });
   }
 
   console.log("\nbundling the Remotion project…");
   const publicDir = path.join(ROOT, "public");
   const serveUrl = await bundle({ entryPoint: path.join(ROOT, "video", "index.ts"), publicDir });
 
-  for (const { key, board, scenes, degraded } of jobs) {
+  for (const { key, board, scenes, degraded, voices } of jobs) {
     console.log(`\n── rendering ${board.storyboard.topic}`);
     const inputProps = {
       topic: board.storyboard.topic,
@@ -115,8 +123,15 @@ async function buildTimeline(key: string, board: any) {
       },
     });
 
+    /* Voice provenance travels with the artefact, so the UI reports what the
+       file actually contains rather than what we hoped it would. */
+    fs.writeFileSync(outputLocation.replace(/\.mp4$/, ".voice.json"), JSON.stringify({
+      voices, placeholderScenes: degraded, natural: degraded === 0 && !voices.some((v) => v.includes("sapi")),
+      renderedAt: new Date().toISOString(),
+    }, null, 2), "utf8");
+
     const size = fs.statSync(outputLocation).size;
     console.log(`  ${degraded ? "⚠" : "✓"} ${path.relative(ROOT, outputLocation)} · ${(size / 1048576).toFixed(1)} MB` +
-      `${degraded ? ` · ${degraded} scene(s) on the placeholder voice` : " · natural voice throughout"}`);
+      `${degraded ? ` · ⚠ ${degraded}/${scenes.length} scene(s) PLACEHOLDER voice` : " · natural voice throughout"}`);
   }
 })().catch((e) => { console.error("\nRENDER FAILED:", e?.message ?? e); process.exit(1); });

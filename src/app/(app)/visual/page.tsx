@@ -5,10 +5,9 @@ import { Loader2, Film, Clock, CheckCircle2, AlertTriangle, Anchor, HelpCircle, 
 import { Card, Chip } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
-/* Visual Revision Engine — storyboard review.
-   There is no rendered video yet. This page exists so the PEDAGOGY can be
-   judged before any render effort is spent: scene order, what each beat is
-   for, whether the narration explains rather than describes. */
+/* Visual Revision Engine — watch the video, then judge the teaching.
+   The voice badge reads from the render's own sidecar, so a placeholder
+   voice is always labelled as one wherever the video is offered. */
 
 interface Scene {
   n: number; seconds: number; beat: string;
@@ -19,6 +18,7 @@ interface Board {
   key: string;
   video: string | null;
   videoBytes: number;
+  voice: { natural: boolean; placeholderScenes: number; voices: string[] } | null;
   score: { total: number; tier: string; priority: string; archetype: string; reasons: string[] };
   storyboard: {
     topic: string; subject: string; archetype: string; learningObjective: string;
@@ -73,9 +73,8 @@ export default function VisualPage() {
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">Visual Revision Engine</p>
         <h1 className="mt-1 text-[20px] font-semibold text-ink">Storyboard review</h1>
         <p className="mt-1 max-w-[680px] text-[12.5px] leading-relaxed text-ink-3">
-          Not yet rendered — this is the plan for the video. Judge the teaching here, before any animation
-          effort is spent: is the scene order right, does every beat earn its place, does the narration
-          explain the meaning rather than describe the picture?
+          Watch it, then judge the teaching underneath: does each scene carry one idea, does the term
+          arrive only after you already understand the thing, and is any step of the mechanism missing?
         </p>
       </div>
 
@@ -103,8 +102,18 @@ export default function VisualPage() {
             style={{ aspectRatio: "16 / 9" }}
           />
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
-            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
+            <span className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
               {mmss(sb.totalSeconds)} · {(b.videoBytes / 1048576).toFixed(1)} MB · 1920×1080
+              {b.voice && !b.voice.natural && (
+                <span className="rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-warning">
+                  placeholder voice
+                </span>
+              )}
+              {b.voice?.natural && (
+                <span className="rounded border border-success/40 bg-success/10 px-1.5 py-0.5 text-success">
+                  natural voice
+                </span>
+              )}
             </span>
             <a href={b.video} download className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent hover:underline">Download</a>
           </div>

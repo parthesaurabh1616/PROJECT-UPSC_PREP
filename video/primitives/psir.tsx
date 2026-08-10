@@ -1,7 +1,7 @@
 import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Theme, FONT, SAFE, eyebrow } from "../theme";
-import { PrimProps, useStagger } from "./shared";
+import { PrimProps, useStagger, asText } from "./shared";
 
 /* PSIR visual language — ideas, thinkers, power, states, institutions.
    These show STRUCTURE: what depends on what, what transforms into what,
@@ -37,7 +37,7 @@ export const ConceptGraph: React.FC<PrimProps> = ({ props, theme: t }) => {
             <g key={i}>
               <line x1={a.x} y1={a.y} x2={a.x + (b.x - a.x) * draw} y2={a.y + (b.y - a.y) * draw} stroke={t.accent} strokeOpacity={0.55} strokeWidth={2} />
               {e.label && draw > 0.9 && (
-                <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 10} fill={t.ink3} fontSize={20} fontFamily={FONT.mono} textAnchor="middle">{e.label}</text>
+                <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 10} fill={t.ink3} fontSize={20} fontFamily={FONT.mono} textAnchor="middle">{asText(e.label)}</text>
               )}
             </g>
           );
@@ -52,7 +52,7 @@ export const ConceptGraph: React.FC<PrimProps> = ({ props, theme: t }) => {
             border: `1px solid ${t.line}`, background: t.bgSoft, borderRadius: 14, padding: "18px 24px", maxWidth: 380,
             fontFamily: FONT.display, fontSize: 30, color: t.ink, textAlign: "center",
           }}>
-            {n.label}
+            {asText(n.label)}
           </div>
         );
       })}
@@ -74,7 +74,7 @@ export const ThinkerWorld: React.FC<PrimProps> = ({ props, theme: t }) => {
           return (
             <div key={i} style={{ ...st, display: "flex", gap: 22, alignItems: "flex-start" }}>
               <div style={{ ...eyebrow(t), minWidth: 300, paddingTop: 6 }}>{k as string}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 30, color: t.ink, lineHeight: 1.35, maxWidth: 1180 }}>{v as string}</div>
+              <div style={{ fontFamily: FONT.body, fontSize: 30, color: t.ink, lineHeight: 1.35, maxWidth: 1180 }}>{asText(v)}</div>
             </div>
           );
         })}
@@ -98,11 +98,11 @@ export const InstitutionDiagram: React.FC<PrimProps> = ({ props, theme: t }) => 
                 ...st, width: top ? 980 : 760, border: `2px solid ${top ? t.accent : t.line}`,
                 background: top ? `${t.accent}18` : t.bgSoft, borderRadius: 16, padding: "22px 30px", textAlign: "center",
               }}>
-                <div style={{ fontFamily: FONT.display, fontSize: top ? 46 : 36, fontWeight: 700, color: top ? t.accent : t.ink }}>{l.name}</div>
+                <div style={{ fontFamily: FONT.display, fontSize: top ? 46 : 36, fontWeight: 700, color: top ? t.accent : t.ink }}>{asText(l.name)}</div>
                 {l.powers?.length ? (
                   <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
                     {l.powers.map((p, j) => (
-                      <span key={j} style={{ border: `1px solid ${t.line}`, borderRadius: 999, padding: "6px 16px", fontFamily: FONT.mono, fontSize: 20, color: t.ink2 }}>{p}</span>
+                      <span key={j} style={{ border: `1px solid ${t.line}`, borderRadius: 999, padding: "6px 16px", fontFamily: FONT.mono, fontSize: 20, color: t.ink2 }}>{asText(p)}</span>
                     ))}
                   </div>
                 ) : null}
@@ -126,9 +126,9 @@ export const StateTransition: React.FC<PrimProps> = ({ props, theme: t }) => {
       flex: 1, border: `2px solid ${accent}`, background: `${accent}12`, borderRadius: 18, padding: 30,
       opacity: 0.35 + 0.65 * active, transform: `scale(${0.96 + 0.04 * active})`,
     }}>
-      <div style={{ fontFamily: FONT.display, fontSize: 44, fontWeight: 700, color: accent, marginBottom: 14 }}>{o?.label}</div>
+      <div style={{ fontFamily: FONT.display, fontSize: 44, fontWeight: 700, color: accent, marginBottom: 14 }}>{asText(o?.label)}</div>
       {(o?.traits ?? []).map((x: string, i: number) => (
-        <div key={i} style={{ fontFamily: FONT.body, fontSize: 27, color: t.ink2, marginBottom: 8 }}>· {x}</div>
+        <div key={i} style={{ fontFamily: FONT.body, fontSize: 27, color: t.ink2, marginBottom: 8 }}>· {asText(x)}</div>
       ))}
     </div>
   );
@@ -138,7 +138,7 @@ export const StateTransition: React.FC<PrimProps> = ({ props, theme: t }) => {
         {side(props.before, 1 - p, t.ink3)}
         <div style={{ textAlign: "center", minWidth: 260 }}>
           <div style={{ color: t.accent, fontSize: 54 }}>→</div>
-          <div style={{ fontFamily: FONT.mono, fontSize: 22, color: t.accent, letterSpacing: "0.1em", marginTop: 8 }}>{props.trigger}</div>
+          <div style={{ fontFamily: FONT.mono, fontSize: 22, color: t.accent, letterSpacing: "0.1em", marginTop: 8 }}>{asText(props.trigger)}</div>
         </div>
         {side(props.after, p, t.accent)}
       </div>
@@ -157,8 +157,8 @@ export const GeopoliticalMap: React.FC<PrimProps> = ({ props, theme: t }) => {
           const st = useStagger(i, 8);
           return (
             <div key={i} style={{ ...st, border: `2px solid ${colour(a.role)}`, background: `${colour(a.role)}14`, borderRadius: 16, padding: "22px 30px" }}>
-              <div style={{ fontFamily: FONT.display, fontSize: 36, color: t.ink }}>{a.name}</div>
-              {a.role && <div style={{ ...eyebrow(t), fontSize: 16 }}>{a.role}</div>}
+              <div style={{ fontFamily: FONT.display, fontSize: 36, color: t.ink }}>{asText(a.name)}</div>
+              {a.role && <div style={{ ...eyebrow(t), fontSize: 16 }}>{asText(a.role)}</div>}
             </div>
           );
         })}
@@ -166,7 +166,7 @@ export const GeopoliticalMap: React.FC<PrimProps> = ({ props, theme: t }) => {
       {flows.length > 0 && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
           {flows.map((f, i) => (
-            <div key={i} style={{ fontFamily: FONT.mono, fontSize: 22, color: colour(f.kind) }}>{f.from} → {f.to} · {f.kind}</div>
+            <div key={i} style={{ fontFamily: FONT.mono, fontSize: 22, color: colour(f.kind) }}>{asText(f.from)} → {asText(f.to)} · {asText(f.kind)}</div>
           ))}
         </div>
       )}

@@ -1,7 +1,7 @@
 import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Theme, FONT, SAFE, eyebrow } from "../theme";
-import { PrimProps, useStagger } from "./shared";
+import { PrimProps, useStagger, asText } from "./shared";
 
 /* GEOGRAPHY visual language — Earth, space, movement, process.
    The rule these exist to serve: if the process happens underground,
@@ -35,7 +35,7 @@ export const CrossSection: React.FC<PrimProps> = ({ props, theme: t }) => {
                 transform: `scaleY(${grow})`, transformOrigin: "top",
               }}>
                 <span style={{ fontFamily: FONT.display, fontSize: 32, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,.7)" }}>
-                  {l.name}{l.depthKm ? ` · ${l.depthKm} km` : ""}
+                  {asText(l.name)}{l.depthKm ? ` · ${l.depthKm} km` : ""}
                 </span>
               </div>
             );
@@ -47,7 +47,7 @@ export const CrossSection: React.FC<PrimProps> = ({ props, theme: t }) => {
               const st = useStagger(i + layers.length, 7);
               return (
                 <div key={i} style={{ ...st, border: `1px solid ${t.line}`, borderLeft: `3px solid ${t.accent}`, background: t.bgSoft, borderRadius: 10, padding: "14px 18px", fontFamily: FONT.body, fontSize: 26, color: t.ink2 }}>
-                  {typeof a === "string" ? a : a.label}
+                  {asText(a)}
                 </div>
               );
             })}
@@ -85,7 +85,7 @@ export const PlateBoundary: React.FC<PrimProps> = ({ props, theme: t }) => {
           ? `translate(${dx}px, ${dy + (oceanic ? sink : 0)}px) rotate(${kind === "convergent" && oceanic ? p * 16 : 0}deg)`
           : `translate(${-dx}px, ${-dy}px)`,
       }}>
-        {o?.name ?? ""}
+        {asText(o?.name)}
       </div>
     );
   };
@@ -105,7 +105,7 @@ export const PlateBoundary: React.FC<PrimProps> = ({ props, theme: t }) => {
       )}
       {props.outcome && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, textAlign: "center", fontFamily: FONT.display, fontSize: 40, color: t.accent2, opacity: interpolate(p, [0.45, 0.75], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
-          {props.outcome}
+          {asText(props.outcome)}
         </div>
       )}
     </Frame>
@@ -145,7 +145,7 @@ export const EarthGlobe: React.FC<PrimProps> = ({ props, theme: t }) => {
             <g key={i}>
               <circle cx={x} cy={y} r={9 * pulse} fill={t.accent2} />
               <line x1={x} y1={y} x2={x + 90} y2={y - 60} stroke={t.accent2} strokeOpacity={0.7} />
-              <text x={x + 98} y={y - 62} fill={t.ink} fontSize={26} fontFamily={FONT.display}>{m.label}</text>
+              <text x={x + 98} y={y - 62} fill={t.ink} fontSize={26} fontFamily={FONT.display}>{asText(m.label)}</text>
             </g>
           );
         })}
@@ -163,7 +163,7 @@ export const PhysicalMap: React.FC<PrimProps> = ({ props, theme: t }) => {
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ width: 900, height: 620, border: `1px solid ${t.line}`, borderRadius: 24, background: t.bgSoft, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 40% 40%, ${t.accent}22, transparent 60%)` }} />
-          <div style={{ position: "absolute", top: 26, left: 30, fontFamily: FONT.display, fontSize: 40, color: t.ink }}>{props.region}</div>
+          <div style={{ position: "absolute", top: 26, left: 30, fontFamily: FONT.display, fontSize: 40, color: t.ink }}>{asText(props.region)}</div>
         </div>
       </div>
       <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", width: 560, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -171,8 +171,8 @@ export const PhysicalMap: React.FC<PrimProps> = ({ props, theme: t }) => {
           const st = useStagger(i, 8);
           return (
             <div key={i} style={{ ...st, border: `1px solid ${t.line}`, borderLeft: `3px solid ${t.accent2}`, background: t.bgSoft, borderRadius: 10, padding: "14px 18px" }}>
-              <div style={{ ...eyebrow(t), fontSize: 15 }}>{f.kind?.replace(/_/g, " ")}</div>
-              <div style={{ fontFamily: FONT.display, fontSize: 30, color: t.ink }}>{f.label}</div>
+              <div style={{ ...eyebrow(t), fontSize: 15 }}>{asText(f.kind).replace(/_/g, " ")}</div>
+              <div style={{ fontFamily: FONT.display, fontSize: 30, color: t.ink }}>{asText(f.label)}</div>
             </div>
           );
         })}
@@ -193,7 +193,7 @@ export const AtmosphericCell: React.FC<PrimProps> = ({ props, theme: t }) => {
           const rise = interpolate((frame + i * 20) % 90, [0, 90], [0, -30]);
           return (
             <div key={i} style={{ flex: 1, height: h, border: `1px solid ${t.line}`, borderRadius: 16, background: t.bgSoft, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ fontFamily: FONT.display, fontSize: 34, color: t.ink }}>{c}</div>
+              <div style={{ fontFamily: FONT.display, fontSize: 34, color: t.ink }}>{asText(c)}</div>
               <div style={{ position: "absolute", left: 30, bottom: 20, color: t.accent, fontSize: 40, transform: `translateY(${rise}px)` }}>↑</div>
               <div style={{ position: "absolute", right: 30, top: 20, color: t.accent2, fontSize: 40, transform: `translateY(${-rise}px)` }}>↓</div>
             </div>
@@ -215,8 +215,8 @@ export const OceanCurrent: React.FC<PrimProps> = ({ props, theme: t }) => {
           return (
             <div key={i} style={{ ...st, display: "flex", alignItems: "center", gap: 20 }}>
               <div style={{ width: 16, height: 16, borderRadius: 8, background: warm ? t.warn : t.accent }} />
-              <div style={{ fontFamily: FONT.display, fontSize: 34, color: t.ink }}>{c.name}</div>
-              <div style={{ ...eyebrow(t), fontSize: 18 }}>{c.temp}</div>
+              <div style={{ fontFamily: FONT.display, fontSize: 34, color: t.ink }}>{asText(c.name)}</div>
+              <div style={{ ...eyebrow(t), fontSize: 18 }}>{asText(c.temp)}</div>
             </div>
           );
         })}
@@ -236,7 +236,7 @@ export const PressureSystem: React.FC<PrimProps> = ({ props, theme: t }) => {
           return (
             <div key={i} style={{ ...st, width: 320, height: 320, borderRadius: 999, border: `2px solid ${high ? t.accent2 : t.accent}`, background: `${high ? t.accent2 : t.accent}14`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
               <div style={{ fontFamily: FONT.display, fontSize: 72, color: high ? t.accent2 : t.accent }}>{high ? "H" : "L"}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 24, color: t.ink2 }}>{c.label}</div>
+              <div style={{ fontFamily: FONT.body, fontSize: 24, color: t.ink2 }}>{asText(c.label)}</div>
             </div>
           );
         })}
@@ -254,7 +254,7 @@ export const WindVector: React.FC<PrimProps> = ({ props, theme: t }) => {
           const st = useStagger(i, 8);
           return (
             <div key={i} style={{ ...st, display: "flex", alignItems: "center", gap: 18, fontFamily: FONT.display, fontSize: 32, color: t.ink }}>
-              <span>{x.from}</span><span style={{ color: t.accent }}>→</span><span>{x.to}</span>
+              <span>{asText(x.from)}</span><span style={{ color: t.accent }}>→</span><span>{asText(x.to)}</span>
               {x.deflect && <span style={{ ...eyebrow(t), fontSize: 18 }}>deflects {x.deflect}</span>}
             </div>
           );
@@ -275,8 +275,8 @@ export const ProfileDiagram: React.FC<PrimProps> = ({ props, theme: t }) => {
           return (
             <div key={i} style={{ ...st, flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%" }}>
               <div style={{ height: `${h}%`, background: `${t.accent}33`, border: `1px solid ${t.accent}`, borderRadius: "10px 10px 0 0" }} />
-              <div style={{ fontFamily: FONT.body, fontSize: 22, color: t.ink2, marginTop: 10, textAlign: "center" }}>{s.name}</div>
-              {s.valueLabel && <div style={{ ...eyebrow(t), fontSize: 15, textAlign: "center" }}>{s.valueLabel}</div>}
+              <div style={{ fontFamily: FONT.body, fontSize: 22, color: t.ink2, marginTop: 10, textAlign: "center" }}>{asText(s.name)}</div>
+              {s.valueLabel && <div style={{ ...eyebrow(t), fontSize: 15, textAlign: "center" }}>{asText(s.valueLabel)}</div>}
             </div>
           );
         })}
