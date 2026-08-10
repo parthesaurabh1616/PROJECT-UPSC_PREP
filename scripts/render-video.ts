@@ -11,7 +11,8 @@ import fs from "fs";
 import path from "path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
-import { getTtsProvider } from "../src/lib/visual/tts";
+import { preflight, synthesizeSegment, assertProduction } from "../src/lib/visual/tts/router";
+import type { TtsMode } from "../src/lib/visual/tts/types";
 
 const FPS = 30;
 const ROOT = process.cwd();
@@ -23,8 +24,19 @@ const TAIL_SECONDS = 0.7;
 const SILENT = new Set(["RECALL_FRAME", "MEMORY_ANCHOR"]);
 
 async function buildTimeline(key: string, board: any) {
-  const tts = getTtsProvider();
+  const mode = (process.env.TTS_MODE as TtsMode) ?? "free";
   const scenes = board.storyboard.scenes;
+
+  /* Preflight BEFORE any synthesis: pick one provider that can cover the whole
+     lesson, or refuse. A narrator who changes voice halfway is worse than a
+     render that never started. */
+  const segments = scenes
+    .filter((s: any) => !SILENT.has(s.visual.primitive) && s.narration?.trim())
+    .map((s: any) => ({ id: String(s.n), text: s.narration.trim() }));
+  const pf = await preflight(segments, { mode });
+  assertProduction(pf, mode);
+  const provider = pf.chosen!;
+  console.log(`  provider ${provider.label} · voice ${provider.defaultVoice} · ${pf.cached}/${pf.uniqueSegments} cached`);
   const outDir = path.join(NARRATION, key);
   fs.mkdirSync(outDir, { recursive: true });
 
@@ -38,16 +50,16 @@ async function buildTimeline(key: string, board: any) {
 
     if (!silent) {
       const wav = path.join(outDir, `${String(s.n).padStart(2, "0")}.wav`);
-      const res = await tts.synthesize(s.narration.trim(), wav);
-      seconds = res.seconds + TAIL_SECONDS;
+      const res = await synthesizeSegment(provider, s.narration.trim(), wav);
+      seconds = res.durationMs / 1000 + TAIL_SECONDS;
       audio = `narration/${key}/${path.basename(wav)}`;
       // Track the voice that actually produced this line. A quality claim the
       // artefact cannot support is worse than an obviously bad voice.
-      const placeholder = (res.provider ?? "").includes("sapi");
+      const placeholder = !res.productionQuality;
       if (placeholder) degraded++;
-      voices.add(res.provider ?? "unknown");
+      voices.add(`${res.provider}:${res.voice}`);
       process.stdout.write(
-        `    scene ${String(s.n).padStart(2)} · ${res.seconds.toFixed(1)}s` +
+        `    scene ${String(s.n).padStart(2)} · ${(res.durationMs / 1000).toFixed(1)}s` +
         `${res.cached ? " (cached)" : ""}${placeholder ? "  ⚠ placeholder" : ""}\n`);
     } else {
       process.stdout.write(`    scene ${String(s.n).padStart(2)} · silent (${seconds}s)\n`);

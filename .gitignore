@@ -40,3 +40,4 @@ storyboards/
 public/narration/
 public/videos/
 .cache/
+.venv-tts/

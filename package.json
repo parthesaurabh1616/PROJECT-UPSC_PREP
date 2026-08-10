@@ -18,7 +18,13 @@
     "db:seed": "tsx prisma/seed.ts",
     "ncert:scan": "tsx scripts/ncert-scan.ts",
     "pyq:scan": "tsx scripts/pyq-scan.ts",
-    "embed:index": "tsx scripts/embed-index.ts"
+    "embed:index": "tsx scripts/embed-index.ts",
+    "tts:preflight": "tsx scripts/tts-preflight.ts",
+    "tts:quota": "tsx scripts/tts-preflight.ts",
+    "tts:benchmark": "tsx scripts/voice-analyse.ts",
+    "visual:score": "tsx scripts/visual-score.ts",
+    "visual:storyboard": "tsx scripts/visual-storyboard.ts",
+    "visual:render": "tsx scripts/render-video.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
